@@ -491,16 +491,96 @@
 
         /* ==================== RESPONSIVE ==================== */
         @media (max-width: 768px) {
-            .inv-header { flex-direction: column; }
-            .stats-grid { grid-template-columns: 1fr 1fr; }
+
+            /* Header kompakt */
+            .header {
+                padding: 0.6rem 0.8rem;
+                gap: 0.5rem;
+            }
+            .brand { font-size: 0.95rem; }
+            .logo-img { width: 32px; height: 32px; border-radius: 8px; }
+            #headerUser { font-size: 0.65rem; }
+
+            /* Header-Buttons: kompakter & 2-zeilig */
+            .header-actions {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 0.4rem;
+                width: 100%;
+            }
+            .btn { padding: 0.5rem 0.6rem; font-size: 0.75rem; border-radius: 1.2rem; }
+            .btn-primary { grid-column: 1 / -1; } /* Hinzufügen über volle Breite */
+            .music-toggle-btn { width: 32px; height: 32px; font-size: 0.85rem; }
+            .logout-btn { font-size: 0.75rem; padding: 0.5rem 0.8rem; border-radius: 1.2rem; }
+
+            /* Content */
+            .content-area { padding: 0.8rem 0.7rem; padding-bottom: 5rem; }
+
+            /* Titel */
+            .inv-title { font-size: 1.3rem; }
+            .inv-subtitle { font-size: 0.78rem; }
+            .inv-header { margin-bottom: 1rem; }
+
+            /* Stats: 2x2 Grid, kompakter */
+            .stats-grid {
+                grid-template-columns: 1fr 1fr;
+                gap: 0.6rem;
+                margin-bottom: 1rem;
+            }
+            .stat-card { padding: 0.8rem 0.9rem; border-radius: 0.9rem; }
+            .stat-label { font-size: 0.62rem; letter-spacing: 1px; }
+            .stat-value { font-size: 1.4rem; }
+            .stat-icon { font-size: 1.2rem; right: 0.7rem; top: 0.7rem; }
+            .chart-monitor-card .stat-value { font-size: 0.85rem; }
+
+            /* Toolbar */
+            .toolbar { gap: 0.4rem; margin-bottom: 0.8rem; }
+            .search-box { font-size: 0.82rem; padding: 0.5rem 0.9rem; }
+            .filter-select { font-size: 0.75rem; padding: 0.5rem 0.7rem; }
+
+            /* Tabelle: scrollbar & kompakter */
+            .table-wrap { border-radius: 0.9rem; }
+            thead th { padding: 0.6rem 0.7rem; font-size: 0.62rem; letter-spacing: 1px; }
+            td { padding: 0.65rem 0.7rem; font-size: 0.8rem; }
+            .td-name { font-size: 0.82rem; }
+            .badge { font-size: 0.65rem; padding: 0.15rem 0.5rem; }
+            .qty-badge { font-size: 0.82rem; padding: 0.15rem 0.45rem; }
+            .icon-btn { width: 26px; height: 26px; font-size: 0.75rem; }
+
+            /* Form Modal */
             .form-row { grid-template-columns: 1fr; }
-            .header { padding: 0.7rem 1rem; }
-            .brand { font-size: 1rem; }
-            .logo-img { width: 35px; height: 35px; }
-            .content-area { padding: 1rem 0.8rem; }
-            .toolbar { gap: 0.5rem; }
-            .loading-gif-bg { width: 260px; height: 260px; }
-            .footer { flex-direction: column; gap: 0.3rem; padding: 0.7rem 1rem; font-size: 0.7rem; }
+            .modal { padding: 1.4rem; border-radius: 1.2rem; }
+            .modal h2 { font-size: 1.1rem; margin-bottom: 1rem; }
+            .form-input, .form-select, .form-textarea { padding: 0.6rem 0.8rem; font-size: 0.85rem; }
+
+            /* Chart Modal */
+            .chart-modal { padding: 1.4rem; border-radius: 1.2rem; }
+            .chart-modal-title { font-size: 1.05rem; }
+            .chart-summary-row { grid-template-columns: 1fr; gap: 0.5rem; margin-bottom: 1rem; }
+            .chart-container { height: 220px; padding: 0.6rem; }
+            .chart-tab { font-size: 0.72rem; padding: 0.3rem 0.7rem; }
+
+            /* Footer */
+            .footer { flex-direction: column; gap: 0.2rem; padding: 0.5rem 1rem; font-size: 0.68rem; }
+
+            /* Loading */
+            .loading-gif-bg { width: 220px; height: 220px; }
+            .loading-text { font-size: 1.1rem; letter-spacing: 4px; }
+
+            /* Login */
+            .login-box { padding: 1.8rem 1.2rem; border-radius: 1.4rem; }
+            .login-logo-wrapper, .login-logo, .checkmark-wrapper { width: 80px; height: 80px; }
+            .checkmark-circle { width: 80px; height: 80px; }
+            .login-box h1 { font-size: 1.4rem; }
+            .user-pokemon-img { width: 58px; height: 58px; }
+            .user-pick-btn { padding: 0.8rem 0.4rem; font-size: 0.85rem; border-radius: 0.9rem; }
+        }
+
+        @media (max-width: 380px) {
+            .header-actions { grid-template-columns: 1fr; }
+            .btn-primary { grid-column: unset; }
+            .stats-grid { grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+            .stat-value { font-size: 1.2rem; }
         }
         .music-toggle-btn {
             background: rgba(255,255,255,0.08);
