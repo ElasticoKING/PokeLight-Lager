@@ -502,7 +502,25 @@
             .loading-gif-bg { width: 260px; height: 260px; }
             .footer { flex-direction: column; gap: 0.3rem; padding: 0.7rem 1rem; font-size: 0.7rem; }
         }
-        /* ==================== CHART MONITOR ==================== */
+        .music-toggle-btn {
+            background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 50%;
+            width: 36px; height: 36px;
+            color: white; cursor: pointer; font-size: 1rem;
+            display: flex; align-items: center; justify-content: center;
+            transition: all 0.2s;
+        }
+        .music-toggle-btn:hover { background: rgba(255,255,255,0.18); }
+        .music-toggle-btn.playing {
+            background: rgba(106,17,255,0.25);
+            border-color: rgba(106,17,255,0.5);
+            animation: musicPulse 2s ease-in-out infinite;
+        }
+        @keyframes musicPulse {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(106,17,255,0.3); }
+            50%       { box-shadow: 0 0 0 7px rgba(106,17,255,0); }
+        }
         .chart-monitor-card {
             cursor: pointer;
             transition: all 0.3s ease !important;
@@ -706,6 +724,11 @@
     </div>
 </div>
 
+<!-- Hintergrundmusik -->
+<audio id="bgMusic" loop preload="auto">
+    <source src="https://cdn.pixabay.com/audio/2022/05/27/audio_1808fbf07a.mp3" type="audio/mpeg">
+</audio>
+
 <!-- APP -->
 <div class="app hidden" id="app">
     <div class="header">
@@ -721,6 +744,7 @@
             <button class="btn btn-export" onclick="exportCSV()">⬇ Export CSV</button>
             <button class="btn btn-import" onclick="document.getElementById('csvImportInput').click()">⬆ Import CSV</button>
             <input type="file" id="csvImportInput" accept=".csv" style="display:none" onchange="importCSV(event)">
+            <button class="music-toggle-btn" id="musicToggleBtn" onclick="toggleMusic()" title="Musik an/aus">🔊</button>
             <button class="logout-btn" onclick="logout()">Verlassen</button>
         </div>
     </div>
@@ -962,6 +986,45 @@ const USERS = {
 
 let currentUser = null; // aktiver Benutzer-Key
 
+// ==================== MUSIK ====================
+let musicPlaying = false;
+let audioUnlocked = false;
+
+function unlockAudio() {
+    // Beim ersten echten Klick den AudioContext entsperren
+    if (audioUnlocked) return;
+    audioUnlocked = true;
+    const audio = document.getElementById('bgMusic');
+    if (!audio) return;
+    audio.play().then(() => { audio.pause(); audio.currentTime = 0; }).catch(() => {});
+}
+
+function startMusic() {
+    const audio = document.getElementById('bgMusic');
+    if (!audio) return;
+    audio.volume = 0.05;
+    audio.play().then(() => {
+        musicPlaying = true;
+        const btn = document.getElementById('musicToggleBtn');
+        if (btn) { btn.textContent = '🔊'; btn.classList.add('playing'); }
+    }).catch(() => {});
+}
+
+function stopMusic() {
+    const audio = document.getElementById('bgMusic');
+    if (!audio) return;
+    audio.pause();
+    audio.currentTime = 0;
+    musicPlaying = false;
+    const btn = document.getElementById('musicToggleBtn');
+    if (btn) { btn.textContent = '🔇'; btn.classList.remove('playing'); }
+}
+
+function toggleMusic() {
+    if (musicPlaying) { stopMusic(); }
+    else { startMusic(); }
+}
+
 // Setze Pokémon-Bilder in die Buttons
 document.getElementById('imgAmine').src = USERS['amine'].img;
 document.getElementById('imgSimon').src = USERS['simon'].img;
@@ -987,6 +1050,7 @@ function backToUserSelect() {
 
 function checkPassword() {
     if (!currentUser) return;
+    unlockAudio(); // Audio-Kontext beim Klick entsperren
     const user = USERS[currentUser];
     const password = document.getElementById('passwordInput').value;
     const errorMsg = document.getElementById('errorMsg');
@@ -1024,7 +1088,9 @@ function checkPassword() {
                     `<img src="${user.img}" style="width:16px;height:16px;object-fit:contain;image-rendering:pixelated;vertical-align:middle;margin-right:3px"> ${user.name}`;
                 document.getElementById('inv-title-user').textContent = user.name + 's';
                 renderTable();
-                setTimeout(saveChartSnapshot, 500); // Snapshot nach Login
+                // Musik erst starten wenn die Seite sichtbar ist
+                setTimeout(startMusic, 800);
+                setTimeout(saveChartSnapshot, 500);
             }, 500);
         }, 1000);
     } else {
@@ -1048,6 +1114,7 @@ function logout() {
     // Zurück zur Benutzerauswahl
     backToUserSelect();
     currentUser = null;
+    stopMusic();
 }
 
 document.getElementById('passwordInput').addEventListener('keypress', e => {
