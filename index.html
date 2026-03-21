@@ -198,12 +198,12 @@
         .header-actions { display: flex; gap: 1rem; flex-wrap: wrap; align-items: center; }
 
         .logout-btn {
-            background: rgba(255, 255, 255, 0.1);
-            border: 1px solid rgba(255, 255, 255, 0.2);
+            background: rgba(220,38,38,0.15);
+            border: 1px solid rgba(220,38,38,0.35);
             padding: 0.5rem 1.2rem; border-radius: 2rem;
-            color: white; cursor: pointer; font-size: 0.85rem; transition: all 0.2s;
+            color: #fca5a5; cursor: pointer; font-size: 0.85rem; transition: all 0.2s;
         }
-        .logout-btn:hover { background: rgba(255, 255, 255, 0.2); }
+        .logout-btn:hover { background: rgba(220,38,38,0.3); border-color: rgba(220,38,38,0.6); color: #fff; }
 
         /* ==================== INVENTUR CONTENT ==================== */
         .content-area {
@@ -233,8 +233,8 @@
         }
 
         .stat-card {
-            background: rgba(255,255,255,0.04);
-            border: 1px solid rgba(106,17,255,0.2);
+            background: #0d0d1e;
+            border: 1px solid rgba(255,255,255,0.08);
             border-radius: 1.2rem;
             padding: 1.2rem 1.5rem;
             position: relative; overflow: hidden;
@@ -251,10 +251,10 @@
 
         .stat-label { font-size: 0.72rem; letter-spacing: 2px; text-transform: uppercase; color: rgba(255,255,255,0.4); margin-bottom: 0.4rem; }
         .stat-value { font-size: 1.9rem; font-weight: 700; }
-        .stat-value.purple-text { background: linear-gradient(135deg,#a78bff,#60a5fa); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-        .stat-value.green-text  { background: linear-gradient(135deg,#00b09b,#96c93d); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-        .stat-value.gold-text   { background: linear-gradient(135deg,#f7971e,#ffd200); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-        .stat-value.red-text    { background: linear-gradient(135deg,#f12711,#f5af19); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .stat-value.purple-text { color: #ffffff; }
+        .stat-value.green-text  { color: #ffffff; }
+        .stat-value.gold-text   { color: #34d399; }
+        .stat-value.red-text    { color: #ffffff; }
         .stat-icon { font-size: 1.8rem; position: absolute; right: 1.2rem; top: 1rem; opacity: 0.15; }
 
         /* Toolbar */
@@ -265,8 +265,8 @@
 
         .search-box {
             flex: 1; min-width: 200px;
-            background: rgba(255,255,255,0.07);
-            border: 1px solid rgba(255,255,255,0.15);
+            background: #0d0d1e;
+            border: 1px solid rgba(255,255,255,0.08);
             border-radius: 2rem; padding: 0.6rem 1.2rem;
             color: white; font-size: 0.9rem; outline: none;
             transition: border-color 0.2s;
@@ -275,8 +275,8 @@
         .search-box:focus { border-color: rgba(106,17,255,0.6); }
 
         .filter-select {
-            background: rgba(255,255,255,0.07);
-            border: 1px solid rgba(255,255,255,0.15);
+            background: #0d0d1e;
+            border: 1px solid rgba(255,255,255,0.08);
             border-radius: 2rem; padding: 0.6rem 1.2rem;
             color: white; font-size: 0.85rem; outline: none;
             cursor: pointer;
@@ -289,10 +289,10 @@
             font-weight: 600; transition: all 0.2s; white-space: nowrap;
         }
         .btn-primary {
-            background: linear-gradient(135deg, #6a11ff, #2575fc);
+            background: linear-gradient(135deg, #16a34a, #22c55e);
             color: white;
         }
-        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(106,17,255,0.35); }
+        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(34,197,94,0.3); }
 
         .btn-secondary {
             background: rgba(255,255,255,0.08);
@@ -302,21 +302,30 @@
         .btn-secondary:hover { background: rgba(255,255,255,0.15); }
 
         .btn-export {
-            background: linear-gradient(135deg,#00b09b,#96c93d);
-            color: white;
+            background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(255,255,255,0.15);
+            color: rgba(255,255,255,0.8);
         }
-        .btn-export:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0,176,155,0.35); }
+        .btn-export:hover { background: rgba(255,255,255,0.14); transform: translateY(-1px); }
 
         .btn-import {
-            background: linear-gradient(135deg,#f7971e,#ffd200);
-            color: #1a1a2e;
+            background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(255,255,255,0.15);
+            color: rgba(255,255,255,0.8);
         }
-        .btn-import:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(247,151,30,0.35); }
+        .btn-import:hover { background: rgba(255,255,255,0.14); transform: translateY(-1px); }
+
+        .btn-email {
+            background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(255,255,255,0.15);
+            color: rgba(255,255,255,0.8);
+        }
+        .btn-email:hover { background: rgba(255,255,255,0.14); transform: translateY(-1px); }
 
         /* Table */
         .table-wrap {
-            background: rgba(255,255,255,0.03);
-            border: 1px solid rgba(106,17,255,0.2);
+            background: #0d0d1e;
+            border: 1px solid rgba(255,255,255,0.08);
             border-radius: 1.5rem; overflow: hidden;
             overflow-x: auto;
         }
@@ -327,68 +336,81 @@
         }
 
         thead th {
-            background: rgba(106,17,255,0.15);
-            padding: 1rem 1.2rem;
-            text-align: left; font-size: 0.75rem;
-            letter-spacing: 2px; text-transform: uppercase;
-            color: rgba(255,255,255,0.5);
-            border-bottom: 1px solid rgba(106,17,255,0.2);
+            background: rgba(255,255,255,0.04);
+            padding: 11px 16px;
+            text-align: left; font-size: 0.68rem;
+            letter-spacing: 1.8px; text-transform: uppercase;
+            color: rgba(255,255,255,0.38);
+            border-bottom: 0.5px solid rgba(255,255,255,0.08);
             white-space: nowrap; cursor: pointer; user-select: none;
         }
-        thead th:hover { color: rgba(255,255,255,0.8); }
+        thead th:hover { color: rgba(255,255,255,0.7); }
         thead th .sort-icon { margin-left: 4px; opacity: 0.4; }
         thead th.sorted .sort-icon { opacity: 1; color: #a78bff; }
 
+        /* Spaltenausrichtung */
+        thead th:nth-child(4), td:nth-child(4) { text-align: center; }
+        thead th:nth-child(5), td:nth-child(5),
+        thead th:nth-child(6), td:nth-child(6) { text-align: right; }
+
         tbody tr {
-            border-bottom: 1px solid rgba(255,255,255,0.05);
-            transition: background 0.15s;
+            border-bottom: 0.5px solid rgba(255,255,255,0.06);
+            transition: background 0.15s ease;
         }
         tbody tr:last-child { border-bottom: none; }
-        tbody tr:hover { background: rgba(106,17,255,0.08); }
+        tbody tr:hover { background: rgba(255,255,255,0.04); }
+        tbody tr:hover .action-btns { opacity: 1; }
 
         td {
-            padding: 0.9rem 1.2rem;
-            font-size: 0.9rem; vertical-align: middle;
+            padding: 13px 16px;
+            font-size: 0.875rem; vertical-align: middle;
         }
 
-        .td-name { font-weight: 600; }
+        .td-name { font-weight: 600; font-size: 0.875rem; line-height: 1.3; }
+        .td-date { font-size: 0.72rem; color: rgba(255,255,255,0.32); margin-top: 2px; }
 
         .badge {
             display: inline-block;
-            padding: 0.2rem 0.7rem; border-radius: 2rem;
-            font-size: 0.72rem; font-weight: 600; letter-spacing: 0.5px;
+            padding: 3px 9px; border-radius: 20px;
+            font-size: 0.7rem; font-weight: 500; letter-spacing: 0.3px;
         }
-        .badge-booster    { background: rgba(106,17,255,0.25); color: #c4b5fd; border: 1px solid rgba(106,17,255,0.4); }
-        .badge-display    { background: rgba(37,117,252,0.25); color: #93c5fd; border: 1px solid rgba(37,117,252,0.4); }
-        .badge-tin        { background: rgba(247,151,30,0.25); color: #fcd34d; border: 1px solid rgba(247,151,30,0.4); }
-        .badge-etb        { background: rgba(0,176,155,0.25); color: #6ee7b7; border: 1px solid rgba(0,176,155,0.4); }
-        .badge-blister    { background: rgba(241,39,17,0.25); color: #fca5a5; border: 1px solid rgba(241,39,17,0.4); }
-        .badge-promo      { background: rgba(255,215,0,0.2); color: #fde68a; border: 1px solid rgba(255,215,0,0.35); }
-        .badge-andere     { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.6); border: 1px solid rgba(255,255,255,0.15); }
+        .badge-booster { background: rgba(106,17,255,0.18); color: #c4b5fd; }
+        .badge-display { background: rgba(37,117,252,0.18); color: #93c5fd; }
+        .badge-tin     { background: rgba(247,151,30,0.18); color: #fcd34d; }
+        .badge-etb     { background: rgba(0,176,155,0.18); color: #6ee7b7; }
+        .badge-blister { background: rgba(241,39,17,0.18); color: #fca5a5; }
+        .badge-promo   { background: rgba(255,215,0,0.15); color: #fde68a; }
+        .badge-andere  { background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.5); }
 
         .qty-badge {
-            background: rgba(255,255,255,0.08);
-            border-radius: 0.5rem;
-            padding: 0.2rem 0.6rem;
-            font-weight: 700; font-size: 0.9rem;
+            display: inline-block;
+            background: rgba(255,255,255,0.07);
+            border: 0.5px solid rgba(255,255,255,0.12);
+            border-radius: 6px;
+            padding: 2px 10px;
+            font-weight: 600; font-size: 0.875rem;
             font-variant-numeric: tabular-nums;
         }
 
-        .price-cell { font-variant-numeric: tabular-nums; font-weight: 600; }
-        .price-positive { color: #6ee7b7; }
-        .price-neutral  { color: rgba(255,255,255,0.7); }
+        .price-cell { font-variant-numeric: tabular-nums; font-size: 0.875rem; }
+        .price-positive { color: #34d399; font-weight: 600; }
+        .price-neutral  { color: rgba(255,255,255,0.65); }
 
-        .action-btns { display: flex; gap: 0.4rem; }
-        .icon-btn {
-            width: 30px; height: 30px; border-radius: 0.5rem;
-            border: none; cursor: pointer; font-size: 0.85rem;
-            display: flex; align-items: center; justify-content: center;
-            transition: all 0.2s;
+        .action-btns {
+            display: flex; gap: 5px;
+            opacity: 0; transition: opacity 0.15s ease;
         }
-        .edit-btn { background: rgba(106,17,255,0.2); color: #a78bff; }
-        .edit-btn:hover { background: rgba(106,17,255,0.4); transform: scale(1.1); }
-        .del-btn  { background: rgba(241,39,17,0.2); color: #fca5a5; }
-        .del-btn:hover  { background: rgba(241,39,17,0.4); transform: scale(1.1); }
+        .icon-btn {
+            width: 28px; height: 28px; border-radius: 6px;
+            border: 0.5px solid rgba(255,255,255,0.1);
+            background: rgba(255,255,255,0.05);
+            cursor: pointer; font-size: 0.8rem;
+            display: flex; align-items: center; justify-content: center;
+            transition: all 0.15s;
+            color: rgba(255,255,255,0.7);
+        }
+        .edit-btn:hover { background: rgba(106,17,255,0.25); border-color: rgba(106,17,255,0.4); }
+        .del-btn:hover  { background: rgba(241,39,17,0.25); border-color: rgba(241,39,17,0.4); }
 
         .empty-state {
             text-align: center; padding: 4rem 2rem;
@@ -540,12 +562,14 @@
 
             /* Tabelle: scrollbar & kompakter */
             .table-wrap { border-radius: 0.9rem; }
-            thead th { padding: 0.6rem 0.7rem; font-size: 0.62rem; letter-spacing: 1px; }
-            td { padding: 0.65rem 0.7rem; font-size: 0.8rem; }
-            .td-name { font-size: 0.82rem; }
-            .badge { font-size: 0.65rem; padding: 0.15rem 0.5rem; }
-            .qty-badge { font-size: 0.82rem; padding: 0.15rem 0.45rem; }
-            .icon-btn { width: 26px; height: 26px; font-size: 0.75rem; }
+            thead th { padding: 8px 10px; font-size: 0.6rem; letter-spacing: 1px; }
+            td { padding: 10px 10px; font-size: 0.78rem; }
+            .td-name { font-size: 0.78rem; }
+            .td-date { font-size: 0.68rem; }
+            .badge { font-size: 0.65rem; padding: 2px 7px; }
+            .qty-badge { font-size: 0.78rem; padding: 2px 8px; }
+            .icon-btn { width: 26px; height: 26px; font-size: 0.72rem; }
+            .action-btns { opacity: 1; } /* Immer sichtbar auf Mobile */
 
             /* Form Modal */
             .form-row { grid-template-columns: 1fr; }
@@ -824,6 +848,7 @@
             <button class="btn btn-export" onclick="exportCSV()">⬇ Export CSV</button>
             <button class="btn btn-import" onclick="document.getElementById('csvImportInput').click()">⬆ Import CSV</button>
             <input type="file" id="csvImportInput" accept=".csv" style="display:none" onchange="importCSV(event)">
+            <button class="btn btn-email" onclick="openEmailModal()">📧 Per E-Mail senden</button>
             <button class="music-toggle-btn" id="musicToggleBtn" onclick="toggleMusic()" title="Musik an/aus">🔊</button>
             <button class="logout-btn" onclick="logout()">Verlassen</button>
         </div>
@@ -965,6 +990,32 @@
     </div>
 </div>
 
+<!-- EMAIL MODAL -->
+<div class="modal-overlay" id="emailModalOverlay" style="z-index:3500;">
+    <div class="modal" style="max-width:440px;">
+        <button class="modal-close" onclick="closeEmailModal()">✕</button>
+        <h2>📧 Inventur per E-Mail</h2>
+        <p style="font-size:0.85rem;color:rgba(255,255,255,0.45);margin-bottom:1.2rem;">
+            Die aktuelle CSV-Inventur wird direkt an die angegebene E-Mail-Adresse gesendet.
+        </p>
+        <div class="form-group">
+            <label class="form-label">Empfänger E-Mail *</label>
+            <input class="form-input" id="emailTo" type="email" placeholder="beispiel@gmail.com">
+        </div>
+        <div class="form-group">
+            <label class="form-label">Nachricht (optional)</label>
+            <textarea class="form-textarea" id="emailMessage" placeholder="Hier eine kurze Notiz hinzufügen..."></textarea>
+        </div>
+        <div class="modal-actions">
+            <button class="btn btn-secondary" onclick="closeEmailModal()">Abbrechen</button>
+            <button class="btn btn-email" id="sendEmailBtn" onclick="sendEmailWithCSV()" style="width:auto;padding:0.8rem 1.5rem;">
+                📧 Jetzt senden
+            </button>
+        </div>
+        <div id="emailStatus" style="margin-top:1rem;font-size:0.85rem;text-align:center;"></div>
+    </div>
+</div>
+
 <!-- CHART MODAL -->
 <div class="chart-modal-overlay" id="chartModalOverlay">
     <div class="chart-modal">
@@ -1012,6 +1063,7 @@
     </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script>
 (function() {
@@ -1283,13 +1335,16 @@ function renderTable() {
         const badgeClass = BADGE_MAP[p.kategorie] || 'badge-andere';
         const datumFmt = p.datum ? new Date(p.datum).toLocaleDateString('de-CH') : '—';
         return `<tr>
-            <td style="color:rgba(255,255,255,0.3);font-size:0.8rem">${i+1}</td>
-            <td class="td-name">${escapeHtml(p.name)}<br><span style="font-size:0.72rem;color:rgba(255,255,255,0.35);font-weight:400">${datumFmt}</span></td>
+            <td style="color:rgba(255,255,255,0.25);font-size:0.75rem;font-variant-numeric:tabular-nums">${i+1}</td>
+            <td>
+                <div class="td-name">${escapeHtml(p.name)}</div>
+                <div class="td-date">${datumFmt}</div>
+            </td>
             <td><span class="badge ${badgeClass}">${escapeHtml(p.kategorie)}</span></td>
             <td><span class="qty-badge">${p.menge}</span></td>
             <td class="price-cell price-neutral">CHF ${Number(p.preis).toFixed(2)}</td>
             <td class="price-cell price-positive">CHF ${lagerwert.toFixed(2)}</td>
-            <td style="font-size:0.8rem;color:rgba(255,255,255,0.45);max-width:160px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${escapeHtml(p.notiz||'')}">${escapeHtml(p.notiz||'—')}</td>
+            <td style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:0.78rem;color:rgba(255,255,255,0.35)" title="${escapeHtml(p.notiz||'')}">${escapeHtml(p.notiz||'—')}</td>
             <td>
                 <div class="action-btns">
                     <button class="icon-btn edit-btn" onclick="openEditModal('${p.id}')" title="Bearbeiten">✏️</button>
@@ -1663,6 +1718,113 @@ function saveSnapshotIfLoggedIn() {
     if (currentUser) saveChartSnapshot();
 }
 
+// ==================== EMAIL (EmailJS) ====================
+const EMAILJS_SERVICE  = 'service_8imvftj';
+const EMAILJS_TEMPLATE = 'template_me4ldfm';
+const EMAILJS_KEY      = 'OuZssJXBRhMGzTi08';
+
+function openEmailModal() {
+    const data = loadData();
+    if (data.length === 0) { showToast('⚠️ Keine Produkte zum Versenden!'); return; }
+    document.getElementById('emailStatus').innerHTML = '';
+    document.getElementById('emailTo').value = '';
+    document.getElementById('emailMessage').value = '';
+    document.getElementById('emailModalOverlay').classList.add('active');
+    setTimeout(() => document.getElementById('emailTo').focus(), 100);
+}
+
+function closeEmailModal() {
+    document.getElementById('emailModalOverlay').classList.remove('active');
+}
+
+function generateCSVString() {
+    const data = loadData();
+    const header = ['Nr', 'Produktname', 'Kategorie', 'Menge', 'EK Preis (CHF)', 'Lagerwert (CHF)', 'Kaufdatum', 'Notiz'];
+    const rows = data.map((p, i) => [
+        i + 1,
+        `"${(p.name||'').replace(/"/g,'""')}"`,
+        p.kategorie, p.menge,
+        Number(p.preis).toFixed(2),
+        (Number(p.preis)*Number(p.menge)).toFixed(2),
+        p.datum || '', `"${(p.notiz||'').replace(/"/g,'""')}"`
+    ]);
+    const totalMenge = data.reduce((s,p) => s + Number(p.menge), 0);
+    const totalWert  = data.reduce((s,p) => s + Number(p.preis)*Number(p.menge), 0);
+    rows.push(['', 'TOTAL', '', totalMenge, '', totalWert.toFixed(2), '', '']);
+    return [header, ...rows].map(r => r.join(';')).join('\n');
+}
+
+async function sendEmailWithCSV() {
+    const to = document.getElementById('emailTo').value.trim();
+    const message = document.getElementById('emailMessage').value.trim();
+    const statusEl = document.getElementById('emailStatus');
+    const btn = document.getElementById('sendEmailBtn');
+
+    if (!to || !to.includes('@')) {
+        statusEl.innerHTML = '<span style="color:#f87171;">⚠️ Bitte gültige E-Mail-Adresse eingeben.</span>';
+        return;
+    }
+
+    const data = loadData();
+    if (data.length === 0) { showToast('⚠️ Keine Produkte!'); return; }
+
+    btn.disabled = true;
+    btn.textContent = '⏳ CSV wird hochgeladen...';
+    statusEl.innerHTML = '';
+
+    const user = USERS[currentUser];
+    const datum = new Date().toLocaleDateString('de-CH');
+    const totalWert = data.reduce((s,p) => s + Number(p.preis)*Number(p.menge), 0);
+    const csvContent = '\uFEFF' + generateCSVString();
+    const filename = `PokeLight_Inventur_${user?.name}_${new Date().toISOString().split('T')[0]}.csv`;
+
+    try {
+        // 1. CSV als Blob hochladen via transfer.sh
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const formData = new FormData();
+        formData.append('file', blob, filename);
+
+        const uploadRes = await fetch(`https://litterbox.catbox.moe/resources/internals/api.php`, {
+            method: 'POST',
+            body: (() => {
+                const fd = new FormData();
+                fd.append('reqtype', 'fileupload');
+                fd.append('time', '72h');
+                fd.append('fileToUpload', blob, filename);
+                return fd;
+            })()
+        });
+
+        if (!uploadRes.ok) throw new Error('Upload fehlgeschlagen');
+        const downloadLink = await uploadRes.text();
+
+        // 2. Link per EmailJS senden
+        btn.textContent = '⏳ E-Mail wird gesendet...';
+        emailjs.init(EMAILJS_KEY);
+        await emailjs.send(EMAILJS_SERVICE, EMAILJS_TEMPLATE, {
+            to_email:      to,
+            user_name:     user?.name || 'PokeLight',
+            datum:         datum,
+            csv_content:   `📎 CSV-Datei herunterladen (Link gültig 72 Stunden):\n${downloadLink}\n\nDateiname: ${filename}`,
+            total_wert:    'CHF ' + totalWert.toFixed(2),
+            anzahl:        data.length,
+            message:       message || '—',
+        });
+
+        btn.disabled = false;
+        btn.textContent = '📧 Jetzt senden';
+        statusEl.innerHTML = '<span style="color:#6ee7b7;">✅ E-Mail mit Download-Link gesendet!</span>';
+        setTimeout(() => closeEmailModal(), 2500);
+        showToast('✅ Inventur-Link per E-Mail gesendet!');
+
+    } catch (err) {
+        btn.disabled = false;
+        btn.textContent = '📧 Jetzt senden';
+        statusEl.innerHTML = `<span style="color:#f87171;">❌ Fehler: ${err?.text || err?.message || 'Versand fehlgeschlagen'}</span>`;
+        console.error('Fehler:', err);
+    }
+}
+
 // ==================== UTILS ====================
 function escapeHtml(str) {
     if (!str) return '';
@@ -1692,6 +1854,9 @@ document.getElementById('footerYear').textContent = new Date().getFullYear();
 // Close modals on overlay click
 document.getElementById('modalOverlay').addEventListener('click', function(e) {
     if (e.target === this) closeModal();
+});
+document.getElementById('emailModalOverlay').addEventListener('click', function(e) {
+    if (e.target === this) closeEmailModal();
 });
 document.getElementById('chartModalOverlay').addEventListener('click', function(e) {
     if (e.target === this) closeChartModal();
