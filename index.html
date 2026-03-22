@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>PokeLight - Inventur</title>
+    <link rel="icon" type="image/png" href="https://i.imgur.com/bl9vMAE.png">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -481,7 +482,58 @@
         .modal-actions { display: flex; gap: 0.8rem; margin-top: 1.5rem; }
         .modal-actions .btn { flex: 1; padding: 0.8rem; font-size: 0.9rem; }
 
-        /* ==================== TOAST ==================== */
+        /* ==================== INFO TOAST ====================  */
+        .info-toast {
+            position: fixed;
+            top: 50%; left: 50%; transform: translate(-50%, -50%);
+            background: linear-gradient(135deg, #1a1400, #2a1f00);
+            border: 1px solid rgba(255, 200, 0, 0.45);
+            border-radius: 1.2rem;
+            padding: 1.5rem 1.8rem;
+            max-width: 380px; width: 90%;
+            z-index: 9999;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.6), 0 0 0 9999px rgba(0,0,0,0.4);
+            animation: infoFadeIn 0.4s ease forwards;
+        }
+        .info-toast.fade-out {
+            animation: infoSlideOut 0.4s ease forwards;
+        }
+        @keyframes infoFadeIn {
+            from { opacity: 0; transform: translate(-50%, -50%) scale(0.92); }
+            to   { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+        }
+        @keyframes infoSlideOut {
+            from { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+            to   { opacity: 0; transform: translate(-50%, -50%) scale(0.92); }
+        }
+        .info-toast-header {
+            display: flex; align-items: center; gap: 0.5rem;
+            margin-bottom: 0.5rem;
+        }
+        .info-toast-icon { font-size: 1rem; }
+        .info-toast-title {
+            font-size: 0.75rem; font-weight: 700;
+            letter-spacing: 1.5px; text-transform: uppercase;
+            color: #ffd000;
+        }
+        .info-toast-body {
+            font-size: 0.82rem; line-height: 1.5;
+            color: rgba(255,220,100,0.85);
+        }
+        .info-toast-bar {
+            height: 2px; background: rgba(255,200,0,0.2);
+            border-radius: 2px; margin-top: 0.8rem; overflow: hidden;
+        }
+        .info-toast-bar-inner {
+            height: 100%; width: 100%;
+            background: linear-gradient(90deg, #ffd000, #ffaa00);
+            border-radius: 2px;
+            animation: barShrink 8s linear forwards;
+        }
+        @keyframes barShrink {
+            from { width: 100%; }
+            to   { width: 0%; }
+        }
         .toast {
             position: fixed; bottom: 2rem; left: 50%;
             transform: translateX(-50%);
@@ -1837,6 +1889,7 @@ function showToast(msg) {
     document.body.appendChild(t);
     setTimeout(() => t.remove(), 2500);
 }
+
 
 // ==================== INIT ====================
 setTimeout(() => {
