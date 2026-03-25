@@ -1859,6 +1859,8 @@ async function deleteProduct(id) {
 async function exportCSV() {
     const data = await loadData();
     if (data.length === 0) { showToast('⚠️ Keine Daten zum Exportieren!'); return; }
+
+    // --- Inventur Block ---
     const header = ['Nr', 'Produktname', 'Kategorie', 'Menge', 'EK Preis (CHF)', 'Lagerwert (CHF)', 'Kaufdatum', 'Notiz'];
     const rows = data.map((p, i) => [
         i+1,
@@ -1870,13 +1872,30 @@ async function exportCSV() {
         p.datum || '',
         `"${(p.notiz||'').replace(/"/g,'""')}"`
     ]);
-
-    // Totals row
     const totalMenge = data.reduce((s,p) => s + Number(p.menge), 0);
     const totalWert  = data.reduce((s,p) => s + Number(p.preis)*Number(p.menge), 0);
     rows.push(['', 'TOTAL', '', totalMenge, '', totalWert.toFixed(2), '', '']);
 
-    const csv = [header, ...rows].map(r => r.join(';')).join('\n');
+    // --- Verkaufshistorie Block ---
+    const sold = await loadSoldHistory();
+    const soldHeader = ['##SOLD##', 'Produktname', 'Kategorie', 'Menge', 'EK Preis (CHF)', 'VK Preis (CHF)', 'Datum', 'ID'];
+    const soldRows = sold.map(e => [
+        '##SOLD##',
+        `"${(e.name||'').replace(/"/g,'""')}"`,
+        e.kategorie,
+        e.menge,
+        Number(e.preis).toFixed(2),
+        Number(e.vkPreis||0).toFixed(2),
+        e.datum || '',
+        `"${(e.id||'').replace(/"/g,'""')}"`
+    ]);
+
+    const csv = [
+        header, ...rows,
+        [],
+        soldHeader, ...soldRows
+    ].map(r => r.join(';')).join('\n');
+
     const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -1884,7 +1903,7 @@ async function exportCSV() {
     a.download = `PokeLight_Inventur_${new Date().toISOString().split('T')[0]}.csv`;
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
     URL.revokeObjectURL(url);
-    showToast('✅ CSV exportiert!');
+    showToast('✅ CSV exportiert (inkl. Verkaufshistorie)!');
 }
 
 // ==================== IMPORT CSV ====================
@@ -1894,18 +1913,35 @@ function importCSV(event) {
     const reader = new FileReader();
     reader.onload = async function(e) {
         try {
-            const text = e.target.result.replace(/^\uFEFF/, ''); // BOM entfernen
+            const text = e.target.result.replace(/^\uFEFF/, '');
             const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
             if (lines.length < 2) { showToast('⚠️ CSV leer oder ungültig!'); return; }
 
-            // Header überspringen (erste Zeile)
             const importedProducts = [];
+            const importedSold = [];
+            const VALID_KAT = ['Booster Pack','Display','Tin','ETB','Blister','Promo','Andere'];
             let skipped = 0;
 
             for (let i = 1; i < lines.length; i++) {
                 const cols = parseCSVLine(lines[i]);
-                // Überspringe TOTAL-Zeile und leere Zeilen
-                if (!cols[1] || cols[1].trim() === 'TOTAL' || cols[1].trim() === '') continue;
+                if (!cols[0] && !cols[1]) continue; // leere Zeile
+
+                // Verkaufshistorie-Zeile
+                if (cols[0] && cols[0].trim() === '##SOLD##') {
+                    const name     = cols[1] ? cols[1].replace(/^"|"$/g,'').trim() : '';
+                    const kat      = cols[2] ? cols[2].trim() : 'Andere';
+                    const menge    = parseInt(cols[3]) || 0;
+                    const preis    = parseFloat((cols[4]||'').replace(',','.')) || 0;
+                    const vkPreis  = parseFloat((cols[5]||'').replace(',','.')) || 0;
+                    const datum    = cols[6] ? cols[6].trim() : '';
+                    const id       = cols[7] ? cols[7].replace(/^"|"$/g,'').trim() : Date.now().toString() + '_s' + i;
+                    if (!name) continue;
+                    importedSold.push({ id, name, kategorie: VALID_KAT.includes(kat) ? kat : 'Andere', menge, preis, vkPreis, datum });
+                    continue;
+                }
+
+                // Inventur-Zeile
+                if (!cols[1] || cols[1].trim() === 'TOTAL' || cols[1].trim() === 'Produktname' || cols[1].trim() === '') continue;
 
                 const name      = cols[1] ? cols[1].replace(/^"|"$/g,'').trim() : '';
                 const kategorie = cols[2] ? cols[2].trim() : 'Andere';
@@ -1913,44 +1949,48 @@ function importCSV(event) {
                 const preis     = parseFloat((cols[4]||'').replace(',','.')) || 0;
                 const datum     = cols[6] ? cols[6].trim() : '';
                 const notiz     = cols[7] ? cols[7].replace(/^"|"$/g,'').trim() : '';
-
-                const VALID_KAT = ['Booster Pack','Display','Tin','ETB','Blister','Promo','Andere'];
-                const finalKat = VALID_KAT.includes(kategorie) ? kategorie : 'Andere';
-
                 if (!name) { skipped++; continue; }
-
                 importedProducts.push({
                     id: Date.now().toString() + '_' + i,
-                    name, kategorie: finalKat, menge, preis, datum, notiz
+                    name, kategorie: VALID_KAT.includes(kategorie) ? kategorie : 'Andere', menge, preis, datum, notiz
                 });
             }
 
-            if (importedProducts.length === 0) {
-                showToast('⚠️ Keine gültigen Produkte gefunden!'); return;
+            if (importedProducts.length === 0 && importedSold.length === 0) {
+                showToast('⚠️ Keine gültigen Daten gefunden!'); return;
             }
 
-            // Fragen: ersetzen oder zusammenführen?
-            const existing = await loadData();
-            let message = `${importedProducts.length} Produkte gefunden.`;
-            if (existing.length > 0) {
-                const choice = confirm(
-                    `${importedProducts.length} Produkte in der CSV gefunden.\n\n` +
-                    `OK = Bestehende Daten ERSETZEN\n` +
-                    `Abbrechen = Zur bestehenden Liste HINZUFÜGEN`
-                );
-                if (choice) {
-                    await saveData(importedProducts);
-                    showToast(`✅ ${importedProducts.length} Produkte importiert (ersetzt)!`);
+            // Inventur importieren
+            if (importedProducts.length > 0) {
+                const existing = await loadData();
+                if (existing.length > 0) {
+                    const choice = confirm(
+                        `${importedProducts.length} Produkte in der CSV gefunden.\n\n` +
+                        `OK = Bestehende Daten ERSETZEN\n` +
+                        `Abbrechen = Zur bestehenden Liste HINZUFÜGEN`
+                    );
+                    if (choice) {
+                        await saveData(importedProducts);
+                        showToast(`✅ ${importedProducts.length} Produkte importiert (ersetzt)!`);
+                    } else {
+                        const existingNames = existing.map(p => p.name.toLowerCase());
+                        const newOnes = importedProducts.filter(p => !existingNames.includes(p.name.toLowerCase()));
+                        await saveData([...existing, ...newOnes]);
+                        showToast(`✅ ${newOnes.length} neue Produkte hinzugefügt!`);
+                    }
                 } else {
-                    // Duplikate vermeiden per Name
-                    const existingNames = existing.map(p => p.name.toLowerCase());
-                    const newOnes = importedProducts.filter(p => !existingNames.includes(p.name.toLowerCase()));
-                    await saveData([...existing, ...newOnes]);
-                    showToast(`✅ ${newOnes.length} neue Produkte hinzugefügt${importedProducts.length - newOnes.length > 0 ? ` (${importedProducts.length - newOnes.length} Duplikate übersprungen)` : ''}!`);
+                    await saveData(importedProducts);
+                    showToast(`✅ ${importedProducts.length} Produkte importiert!`);
                 }
-            } else {
-                await saveData(importedProducts);
-                showToast(`✅ ${importedProducts.length} Produkte importiert!`);
+            }
+
+            // Verkaufshistorie importieren
+            if (importedSold.length > 0) {
+                const existingSold = await loadSoldHistory();
+                const existingIds = existingSold.map(e => e.id);
+                const newSold = importedSold.filter(e => !existingIds.includes(e.id));
+                await saveSoldHistory([...newSold, ...existingSold]);
+                showToast(`✅ ${newSold.length} Verkäufe importiert!`);
             }
 
             await renderTable();
@@ -1958,7 +1998,6 @@ function importCSV(event) {
             console.error(err);
             showToast('❌ Fehler beim Importieren der CSV!');
         }
-        // Input zurücksetzen damit man dieselbe Datei nochmal laden kann
         event.target.value = '';
     };
     reader.readAsText(file, 'UTF-8');
