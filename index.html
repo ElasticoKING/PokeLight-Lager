@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>PokeLight - Inventur</title>
     <link rel="icon" type="image/png" href="https://i.imgur.com/bl9vMAE.png">
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -1439,13 +1441,13 @@ function checkPassword() {
         setTimeout(() => {
             const loginContainer = document.getElementById('loginContainer');
             loginContainer.classList.add('fade-out');
-            setTimeout(() => {
+            setTimeout(async () => {
                 loginContainer.style.display = 'none';
                 document.getElementById('app').classList.remove('hidden');
                 document.getElementById('headerUser').innerHTML =
                     `<img src="${user.img}" style="width:16px;height:16px;object-fit:contain;image-rendering:pixelated;vertical-align:middle;margin-right:3px"> ${user.name}`;
                 document.getElementById('inv-title-user').textContent = user.name + 's';
-                renderTable();
+                await renderTable();
                 // Musik erst starten wenn die Seite sichtbar ist
                 setTimeout(startMusic, 800);
                 setTimeout(saveChartSnapshot, 500);
@@ -1480,24 +1482,66 @@ document.getElementById('passwordInput').addEventListener('keypress', e => {
     if (e.key === 'Enter') checkPassword();
 });
 
-// ==================== INVENTUR DATA (pro Benutzer) ====================
-function getStorageKey() {
-    return currentUser ? USERS[currentUser].storageKey : 'pokelight_inventur_default';
+// ==================== FIREBASE SETUP ====================
+const firebaseConfig = {
+    apiKey: "AIzaSyBPECfyYRVTtQ6U7yTBYx0X6_RV2j9UkqQ",
+    authDomain: "pokelight-lager.firebaseapp.com",
+    projectId: "pokelight-lager",
+    storageBucket: "pokelight-lager.firebasestorage.app",
+    messagingSenderId: "1025064941617",
+    appId: "1:1025064941617:web:46b43c7a4110ae4ef5bd10"
+};
+
+let db = null;
+try {
+    if (!firebase.apps.length) { firebase.initializeApp(firebaseConfig); }
+    db = firebase.firestore();
+    console.log('✅ Firebase verbunden');
+} catch(e) {
+    console.warn('⚠️ Firebase nicht verfügbar, localStorage wird verwendet:', e);
 }
 
-function loadData() {
-    try {
-        return JSON.parse(localStorage.getItem(getStorageKey())) || [];
-    } catch { return []; }
+// ==================== DATA (Firebase + localStorage Fallback) ====================
+function getStorageKey() { return currentUser || 'default'; }
+
+async function loadData() {
+    if (db) {
+        try {
+            const snap = await db.doc(`users/${currentUser}/data/inventur`).get();
+            return snap.exists ? (snap.data().items || []) : [];
+        } catch(e) { console.warn('Firebase loadData failed:', e); }
+    }
+    return JSON.parse(localStorage.getItem('pokelight_inventur_' + currentUser) || '[]');
+}
+async function saveData(data) {
+    localStorage.setItem('pokelight_inventur_' + currentUser, JSON.stringify(data));
+    if (db) {
+        try { await db.doc(`users/${currentUser}/data/inventur`).set({ items: data }); }
+        catch(e) { console.warn('Firebase saveData failed:', e); }
+    }
 }
 
-function saveData(data) {
-    localStorage.setItem(getStorageKey(), JSON.stringify(data));
+function getSoldKey() { return 'pokelight_sold_' + (currentUser || 'default'); }
+async function loadSoldHistory() {
+    if (db) {
+        try {
+            const snap = await db.doc(`users/${currentUser}/data/sold`).get();
+            return snap.exists ? (snap.data().items || []) : [];
+        } catch(e) { console.warn('Firebase loadSoldHistory failed:', e); }
+    }
+    return JSON.parse(localStorage.getItem(getSoldKey()) || '[]');
+}
+async function saveSoldHistory(data) {
+    localStorage.setItem(getSoldKey(), JSON.stringify(data));
+    if (db) {
+        try { await db.doc(`users/${currentUser}/data/sold`).set({ items: data }); }
+        catch(e) { console.warn('Firebase saveSoldHistory failed:', e); }
+    }
 }
 
 // ==================== STATS ====================
-function updateStats() {
-    const all = loadData();
+async function updateStats() {
+    const all = await loadData();
     const totalProdukte = all.length;
     const totalWert  = all.reduce((s,p) => s + (Number(p.preis)||0) * (Number(p.menge)||0), 0);
 
@@ -1505,7 +1549,7 @@ function updateStats() {
     document.getElementById('statWert').textContent     = 'CHF ' + chf(totalWert);
 
     // Gesamtgewinn aus Verkaufshistorie
-    const history = loadSoldHistory();
+    const history = await loadSoldHistory();
     const gewinn = history.reduce((s,e) => s + (Number(e.vkPreis||0) - Number(e.preis)) * Number(e.menge), 0);
     const gewinnEl = document.getElementById('statGewinn');
     if (gewinnEl) {
@@ -1527,8 +1571,8 @@ const BADGE_MAP = {
     'Andere':       'badge-andere',
 };
 
-function renderTable() {
-    const data = loadData();
+async function renderTable() {
+    const data = await loadData();
     const search = document.getElementById('searchBox').value.toLowerCase();
     const katFilter = document.getElementById('filterKategorie').value;
     const sortBy = document.getElementById('filterSortierung').value;
@@ -1553,7 +1597,7 @@ function renderTable() {
         }
     });
 
-    updateStats();
+    await updateStats();
 
     const tbody = document.getElementById('inventurBody');
     if (filtered.length === 0) {
@@ -1595,19 +1639,8 @@ function renderTable() {
 // ==================== VERKAUF ====================
 let sellingId = null;
 
-function getSoldKey() {
-    return 'pokelight_sold_' + (currentUser || 'default');
-}
-function loadSoldHistory() {
-    try { return JSON.parse(localStorage.getItem(getSoldKey())) || []; }
-    catch { return []; }
-}
-function saveSoldHistory(data) {
-    localStorage.setItem(getSoldKey(), JSON.stringify(data));
-}
-
-function openSellModal(id) {
-    const data = loadData();
+async function openSellModal(id) {
+    const data = await loadData();
     const p = data.find(x => x.id === id);
     if (!p) return;
     sellingId = id;
@@ -1626,10 +1659,10 @@ function closeSellModal() {
     sellingId = null;
 }
 
-function confirmSell() {
+async function confirmSell() {
     if (!sellingId) return;
     const menge = parseInt(document.getElementById('sellMenge').value);
-    const data = loadData();
+    const data = await loadData();
     const idx = data.findIndex(x => x.id === sellingId);
     if (idx === -1) return;
 
@@ -1639,7 +1672,7 @@ function confirmSell() {
     if (menge > p.menge) { document.getElementById('sellWarning').style.display = 'block'; return; }
 
     // Verkauf in Historie speichern
-    const history = loadSoldHistory();
+    const history = await loadSoldHistory();
     const vkPreis = parseFloat(document.getElementById('sellVKPreis').value) || 0;
     history.unshift({
         id: Date.now().toString(),
@@ -1650,7 +1683,7 @@ function confirmSell() {
         vkPreis: vkPreis,
         datum: new Date().toLocaleDateString('de-CH'),
     });
-    saveSoldHistory(history);
+    await saveSoldHistory(history);
 
     const neueMenge = p.menge - menge;
     if (neueMenge === 0) {
@@ -1661,23 +1694,24 @@ function confirmSell() {
         showToast(`✅ ${menge}× ${p.name} verkauft — noch ${neueMenge} übrig`);
     }
 
-    saveData(data);
+    await saveData(data);
     closeSellModal();
-    renderTable();
-    saveChartSnapshot();
+    await renderTable();
+    await saveChartSnapshot();
 }
 
 document.getElementById('sellMenge').addEventListener('input', function() {
-    const data = loadData();
-    const p = data.find(x => x.id === sellingId);
-    if (!p) return;
-    document.getElementById('sellWarning').style.display =
-        parseInt(this.value) > p.menge ? 'block' : 'none';
+    loadData().then(data => {
+        const p = data.find(x => x.id === sellingId);
+        if (!p) return;
+        document.getElementById('sellWarning').style.display =
+            parseInt(this.value) > p.menge ? 'block' : 'none';
+    });
 });
 
 // ==================== VERKAUFSHISTORIE ====================
-function openSoldModal() {
-    const history = loadSoldHistory();
+async function openSoldModal() {
+    const history = await loadSoldHistory();
     const user = USERS[currentUser];
 
     const totalMenge  = history.reduce((s,e) => s + Number(e.menge), 0);
@@ -1733,18 +1767,18 @@ function closeSoldModal() {
     document.getElementById('soldModalOverlay').classList.remove('active');
 }
 
-function clearSoldHistory() {
+async function clearSoldHistory() {
     if (!confirm('Gesamten Verkaufsverlauf löschen?')) return;
-    saveSoldHistory([]);
-    openSoldModal();
+    await saveSoldHistory([]);
+    await openSoldModal();
     showToast('🗑️ Verkaufsverlauf gelöscht');
 }
 
-function deleteSoldEntry(id) {
-    const history = loadSoldHistory().filter(e => e.id !== id);
-    saveSoldHistory(history);
-    openSoldModal();
-    updateStats();
+async function deleteSoldEntry(id) {
+    const history = (await loadSoldHistory()).filter(e => e.id !== id);
+    await saveSoldHistory(history);
+    await openSoldModal();
+    await updateStats();
     showToast('🗑️ Eintrag gelöscht');
 }
 
@@ -1764,8 +1798,8 @@ function openAddModal() {
     setTimeout(() => document.getElementById('fName').focus(), 100);
 }
 
-function openEditModal(id) {
-    const data = loadData();
+async function openEditModal(id) {
+    const data = await loadData();
     const p = data.find(x => x.id === id);
     if (!p) return;
     editingId = id;
@@ -1783,7 +1817,7 @@ function closeModal() {
     document.getElementById('modalOverlay').classList.remove('active');
 }
 
-function saveProduct() {
+async function saveProduct() {
     const name = document.getElementById('fName').value.trim();
     const kategorie = document.getElementById('fKategorie').value;
     const menge = parseInt(document.getElementById('fMenge').value);
@@ -1795,7 +1829,7 @@ function saveProduct() {
     if (isNaN(menge) || menge < 0) { showToast('⚠️ Bitte gültige Menge eingeben!'); return; }
     if (isNaN(preis) || preis < 0) { showToast('⚠️ Bitte gültigen EK-Preis eingeben!'); return; }
 
-    const data = loadData();
+    const data = await loadData();
 
     if (editingId) {
         const idx = data.findIndex(x => x.id === editingId);
@@ -1808,22 +1842,22 @@ function saveProduct() {
         showToast('✅ Produkt hinzugefügt!');
     }
 
-    saveData(data);
+    await saveData(data);
     closeModal();
-    renderTable();
+    await renderTable();
 }
 
-function deleteProduct(id) {
+async function deleteProduct(id) {
     if (!confirm('Dieses Produkt wirklich löschen?')) return;
-    const data = loadData().filter(x => x.id !== id);
-    saveData(data);
-    renderTable();
+    const data = (await loadData()).filter(x => x.id !== id);
+    await saveData(data);
+    await renderTable();
     showToast('🗑️ Produkt gelöscht');
 }
 
 // ==================== EXPORT CSV ====================
-function exportCSV() {
-    const data = loadData();
+async function exportCSV() {
+    const data = await loadData();
     if (data.length === 0) { showToast('⚠️ Keine Daten zum Exportieren!'); return; }
     const header = ['Nr', 'Produktname', 'Kategorie', 'Menge', 'EK Preis (CHF)', 'Lagerwert (CHF)', 'Kaufdatum', 'Notiz'];
     const rows = data.map((p, i) => [
@@ -1858,7 +1892,7 @@ function importCSV(event) {
     const file = event.target.files[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = function(e) {
+    reader.onload = async function(e) {
         try {
             const text = e.target.result.replace(/^\uFEFF/, ''); // BOM entfernen
             const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
@@ -1896,7 +1930,7 @@ function importCSV(event) {
             }
 
             // Fragen: ersetzen oder zusammenführen?
-            const existing = loadData();
+            const existing = await loadData();
             let message = `${importedProducts.length} Produkte gefunden.`;
             if (existing.length > 0) {
                 const choice = confirm(
@@ -1905,21 +1939,21 @@ function importCSV(event) {
                     `Abbrechen = Zur bestehenden Liste HINZUFÜGEN`
                 );
                 if (choice) {
-                    saveData(importedProducts);
+                    await saveData(importedProducts);
                     showToast(`✅ ${importedProducts.length} Produkte importiert (ersetzt)!`);
                 } else {
                     // Duplikate vermeiden per Name
                     const existingNames = existing.map(p => p.name.toLowerCase());
                     const newOnes = importedProducts.filter(p => !existingNames.includes(p.name.toLowerCase()));
-                    saveData([...existing, ...newOnes]);
+                    await saveData([...existing, ...newOnes]);
                     showToast(`✅ ${newOnes.length} neue Produkte hinzugefügt${importedProducts.length - newOnes.length > 0 ? ` (${importedProducts.length - newOnes.length} Duplikate übersprungen)` : ''}!`);
                 }
             } else {
-                saveData(importedProducts);
+                await saveData(importedProducts);
                 showToast(`✅ ${importedProducts.length} Produkte importiert!`);
             }
 
-            renderTable();
+            await renderTable();
         } catch(err) {
             console.error(err);
             showToast('❌ Fehler beim Importieren der CSV!');
@@ -1959,24 +1993,36 @@ function getChartKey() {
     return CHART_HISTORY_KEY_PREFIX + (currentUser || 'default');
 }
 
-function loadChartHistory() {
+async function loadChartHistory() {
+    if (db) {
+        try {
+            const snap = await db.doc(`users/${currentUser}/data/chart`).get();
+            return snap.exists ? (snap.data().entries || []) : [];
+        } catch(e) { console.warn('Firebase loadChartHistory failed:', e); }
+    }
     try { return JSON.parse(localStorage.getItem(getChartKey())) || []; }
     catch { return []; }
 }
 
-function saveChartSnapshot() {
-    const data = loadData();
-    const history = loadChartHistory();
+async function saveChartHistory(entries) {
+    localStorage.setItem(getChartKey(), JSON.stringify(entries));
+    if (db) {
+        try { await db.doc(`users/${currentUser}/data/chart`).set({ entries }); }
+        catch(e) { console.warn('Firebase saveChartHistory failed:', e); }
+    }
+}
+
+async function saveChartSnapshot() {
+    const data = await loadData();
+    const history = await loadChartHistory();
     const today = new Date().toISOString().split('T')[0];
 
-    const lagerwert  = data.reduce((s,p) => s + (Number(p.preis)||0)*(Number(p.menge)||0), 0);
-    const menge      = data.reduce((s,p) => s + (Number(p.menge)||0), 0);
-    const produkte   = data.length;
+    const lagerwert = data.reduce((s,p) => s + (Number(p.preis)||0)*(Number(p.menge)||0), 0);
+    const menge     = data.reduce((s,p) => s + (Number(p.menge)||0), 0);
+    const produkte  = data.length;
 
-    // Nur einmal pro Tag speichern (oder wenn noch keiner heute vorhanden)
     const lastEntry = history[history.length - 1];
     if (lastEntry && lastEntry.date === today) {
-        // Heutigen Eintrag updaten
         lastEntry.lagerwert = lagerwert;
         lastEntry.menge = menge;
         lastEntry.produkte = produkte;
@@ -1984,16 +2030,15 @@ function saveChartSnapshot() {
         history.push({ date: today, lagerwert, menge, produkte });
     }
 
-    // Max 90 Einträge behalten
     if (history.length > 90) history.splice(0, history.length - 90);
 
-    localStorage.setItem(getChartKey(), JSON.stringify(history));
+    await saveChartHistory(history);
 }
 
-function openChartModal() {
-    saveChartSnapshot();
-    const history = loadChartHistory();
-    const data = loadData();
+async function openChartModal() {
+    await saveChartSnapshot();
+    const history = await loadChartHistory();
+    const data = await loadData();
 
     const currentWert = data.reduce((s,p) => s + (Number(p.preis)||0)*(Number(p.menge)||0), 0);
     const maxWert = history.length > 0 ? Math.max(...history.map(h => h.lagerwert)) : 0;
@@ -2012,15 +2057,15 @@ function closeChartModal() {
     document.getElementById('chartModalOverlay').classList.remove('active');
 }
 
-function setChartMode(mode, btn) {
+async function setChartMode(mode, btn) {
     currentChartMode = mode;
     document.querySelectorAll('.chart-tab').forEach(t => t.classList.remove('active'));
     btn.classList.add('active');
-    renderChart(mode);
+    await renderChart(mode);
 }
 
-function renderChart(mode) {
-    const history = loadChartHistory();
+async function renderChart(mode) {
+    const history = await loadChartHistory();
     const canvas = document.getElementById('mainChart');
     const emptyEl = document.getElementById('chartEmpty');
 
@@ -2116,8 +2161,8 @@ const EMAILJS_SERVICE  = 'service_8imvftj';
 const EMAILJS_TEMPLATE = 'template_me4ldfm';
 const EMAILJS_KEY      = 'OuZssJXBRhMGzTi08';
 
-function openEmailModal() {
-    const data = loadData();
+async function openEmailModal() {
+    const data = await loadData();
     if (data.length === 0) { showToast('⚠️ Keine Produkte zum Versenden!'); return; }
     document.getElementById('emailStatus').innerHTML = '';
     document.getElementById('emailTo').value = '';
@@ -2130,8 +2175,8 @@ function closeEmailModal() {
     document.getElementById('emailModalOverlay').classList.remove('active');
 }
 
-function generateCSVString() {
-    const data = loadData();
+async function generateCSVString() {
+    const data = await loadData();
     const header = ['Nr', 'Produktname', 'Kategorie', 'Menge', 'EK Preis (CHF)', 'Lagerwert (CHF)', 'Kaufdatum', 'Notiz'];
     const rows = data.map((p, i) => [
         i + 1,
@@ -2158,7 +2203,7 @@ async function sendEmailWithCSV() {
         return;
     }
 
-    const data = loadData();
+    const data = await loadData();
     if (data.length === 0) { showToast('⚠️ Keine Produkte!'); return; }
 
     btn.disabled = true;
