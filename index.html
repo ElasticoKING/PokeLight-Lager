@@ -649,8 +649,8 @@
         </div>
 
         <div class="toolbar">
-            <input class="search-box" id="searchBox" type="text" placeholder="🔍 Produkt suchen..." oninput="renderTable()">
-            <select class="filter-select" id="filterKategorie" onchange="renderTable()">
+            <input class="search-box" id="searchBox" type="text" placeholder="🔍 Produkt suchen...">
+            <select class="filter-select" id="filterKategorie">
                 <option value="">Alle Kategorien</option>
                 <option value="Booster Pack">Booster Pack</option>
                 <option value="Display">Display</option>
@@ -660,7 +660,7 @@
                 <option value="Promo">Promo</option>
                 <option value="Andere">Andere</option>
             </select>
-            <select class="filter-select" id="filterSortierung" onchange="renderTable()">
+            <select class="filter-select" id="filterSortierung">
                 <option value="name">Name A–Z</option>
                 <option value="name-desc">Name Z–A</option>
                 <option value="preis-asc">EK ↑</option>
@@ -1549,6 +1549,9 @@ document.getElementById('soldModalOverlay').addEventListener('click', function(e
 document.getElementById('sellModalOverlay').addEventListener('click', function(e) { if(e.target===this)closeSellModal(); });
 document.getElementById('emailModalOverlay').addEventListener('click', function(e) { if(e.target===this)closeEmailModal(); });
 document.getElementById('chartModalOverlay').addEventListener('click', function(e) { if(e.target===this)closeChartModal(); });
+document.getElementById('searchBox').addEventListener('input', renderTable);
+document.getElementById('filterKategorie').addEventListener('change', renderTable);
+document.getElementById('filterSortierung').addEventListener('change', renderTable);
 
 </script>
 </body>
