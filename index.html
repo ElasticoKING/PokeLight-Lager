@@ -30,45 +30,51 @@
         .loading-screen {
             position: fixed; top: 0; left: 0;
             width: 100%; height: 100%;
-            background: #000;
+            background: #07070f;
             display: flex; justify-content: center; align-items: center;
             z-index: 9999;
-            transition: opacity 0.5s ease, visibility 0.5s ease;
+            transition: opacity 0.6s ease, visibility 0.6s ease;
+            overflow: hidden;
         }
         .loading-screen.fade-out { opacity: 0; visibility: hidden; }
 
-        .loading-gif-bg {
-            width: 425px; height: 425px;
-            border-radius: 0; object-fit: cover; object-position: center;
-            position: relative; z-index: 2;
-        }
+        #loadingCanvas { position:absolute;inset:0;width:100%;height:100%;pointer-events:none; }
 
         .loader-container {
             position: relative; z-index: 2; text-align: center;
-            animation: fadeInUp 0.6s ease;
             display: flex; flex-direction: column;
-            align-items: center; justify-content: center; gap: 1.5rem;
+            align-items: center; justify-content: center; gap: 36px;
+            animation: lsZoomBreath 3s ease-in-out infinite;
         }
+        @keyframes lsZoomBreath { 0%,100%{transform:scale(1)} 50%{transform:scale(1.07)} }
 
-        .loading-text {
-            font-size: 1.6rem; letter-spacing: 6px;
-            font-weight: 600; color: #fff;
-            text-shadow: 0 2px 20px rgba(0,0,0,0.8);
-        }
-
-        .loading-dots { display: flex; justify-content: center; gap: 0.8rem; margin-top: 1.2rem; }
-        .loading-dots span {
-            width: 14px; height: 14px;
-            background: linear-gradient(135deg, #6a11ff, #2575fc);
-            border-radius: 50%; animation: pulse 1.4s ease-in-out infinite;
-        }
-        .loading-dots span:nth-child(1) { animation-delay: 0s; }
-        .loading-dots span:nth-child(2) { animation-delay: 0.2s; }
-        .loading-dots span:nth-child(3) { animation-delay: 0.4s; }
-
-        @keyframes pulse {
-            0%, 100% { transform: scale(0.8); opacity: 0.5; }
-            50% { transform: scale(1.2); opacity: 1; background: linear-gradient(135deg, #00b09b, #96c93d); }
+        .ls-logo-zone { position:relative;width:170px;height:170px;display:flex;align-items:center;justify-content:center; }
+        .ls-orbit { position:absolute;border-radius:50%;animation:lsOrbitSpin linear infinite; }
+        .ls-o1 { width:170px;height:170px;border:1px solid rgba(230,57,70,0.15);border-top-color:#e63946;border-right-color:rgba(230,57,70,0.4);animation-duration:3s; }
+        .ls-o2 { width:148px;height:148px;border:1px solid rgba(255,255,255,0.04);border-bottom-color:rgba(255,255,255,0.18);animation-duration:5s;animation-direction:reverse; }
+        .ls-o3 { width:126px;height:126px;border:1px dashed rgba(230,57,70,0.12);border-left-color:rgba(230,57,70,0.3);animation-duration:7s; }
+        @keyframes lsOrbitSpin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+        .ls-dot-orbit { position:absolute;width:170px;height:170px;animation:lsOrbitSpin 4s linear infinite; }
+        .ls-dot-orbit::before { content:'';position:absolute;width:8px;height:8px;border-radius:50%;background:#e63946;top:-4px;left:50%;transform:translateX(-50%);box-shadow:0 0 10px #e63946; }
+        .ls-dot-orbit2 { position:absolute;width:148px;height:148px;animation:lsOrbitSpin 6s linear infinite reverse; }
+        .ls-dot-orbit2::before { content:'';position:absolute;width:5px;height:5px;border-radius:50%;background:rgba(255,255,255,0.6);bottom:-2.5px;left:50%;transform:translateX(-50%); }
+        .ls-logo-inner { width:108px;height:108px;border-radius:50%;overflow:hidden;background:#0d0d1c;display:flex;align-items:center;justify-content:center;animation:lsInnerPulse 3s ease-in-out infinite; }
+        @keyframes lsInnerPulse { 0%,100%{box-shadow:0 0 0 0 rgba(230,57,70,0)} 50%{box-shadow:0 0 0 10px rgba(230,57,70,0.07)} }
+        .ls-logo-inner img { width:94px;height:94px;object-fit:contain;border-radius:50%; }
+        .ls-brand { display:flex;flex-direction:column;align-items:center;gap:6px; }
+        .ls-brand-name { font-size:44px;font-weight:800;color:#fff;letter-spacing:1px;line-height:1; }
+        .ls-brand-tagline { font-size:12px;font-weight:300;letter-spacing:4px;color:rgba(255,255,255,0.25); }
+        .ls-bottom { display:flex;flex-direction:column;align-items:center;gap:12px;width:240px; }
+        .ls-step-dots { display:flex;gap:6px;align-items:center; }
+        .ls-sd { width:4px;height:4px;border-radius:50%;background:rgba(255,255,255,0.1);transition:all 0.3s; }
+        .ls-sd.active { background:#e63946;width:20px;border-radius:2px; }
+        .ls-bar-wrap { width:100%;height:2px;background:rgba(255,255,255,0.05);border-radius:1px;overflow:hidden; }
+        .ls-bar-inner { height:100%;width:0%;background:#e63946;border-radius:1px;transition:width 0.5s ease; }
+        .ls-status { font-size:10px;letter-spacing:3px;color:rgba(255,255,255,0.22);text-transform:uppercase; }
+        @media (max-width:480px) {
+            .ls-logo-zone{width:130px;height:130px} .ls-o1{width:130px;height:130px} .ls-o2{width:112px;height:112px} .ls-o3{width:96px;height:96px}
+            .ls-dot-orbit{width:130px;height:130px} .ls-dot-orbit2{width:112px;height:112px}
+            .ls-logo-inner{width:82px;height:82px} .ls-logo-inner img{width:70px;height:70px} .ls-brand-name{font-size:32px}
         }
         @keyframes fadeInUp {
             from { opacity: 0; transform: translateY(30px); }
@@ -507,10 +513,33 @@
 
 <!-- LOADING -->
 <div class="loading-screen" id="loadingScreen">
+    <canvas id="loadingCanvas"></canvas>
     <div class="loader-container">
-        <img class="loading-gif-bg" src="https://cdn.dribbble.com/userupload/21328517/file/original-48a84740f8b872ce4008dac8b769c6ce.gif" alt="" onerror="this.style.display='none'">
-        <div class="loading-text">POKELIGHT</div>
-        <div class="loading-dots"><span></span><span></span><span></span></div>
+        <div class="ls-logo-zone">
+            <div class="ls-orbit ls-o1"></div>
+            <div class="ls-orbit ls-o2"></div>
+            <div class="ls-orbit ls-o3"></div>
+            <div class="ls-dot-orbit"></div>
+            <div class="ls-dot-orbit2"></div>
+            <div class="ls-logo-inner">
+                <img src="https://i.imgur.com/bl9vMAE.png" alt="PokeLight"/>
+            </div>
+        </div>
+        <div class="ls-brand">
+            <div class="ls-brand-name">PokeLight</div>
+            <div class="ls-brand-tagline">Dein Business Tool</div>
+        </div>
+        <div class="ls-bottom">
+            <div class="ls-step-dots">
+                <div class="ls-sd" id="lsd0"></div>
+                <div class="ls-sd" id="lsd1"></div>
+                <div class="ls-sd" id="lsd2"></div>
+                <div class="ls-sd" id="lsd3"></div>
+                <div class="ls-sd" id="lsd4"></div>
+            </div>
+            <div class="ls-bar-wrap"><div class="ls-bar-inner" id="lsBar"></div></div>
+            <div class="ls-status" id="lsStatusTxt">Initialisierung…</div>
+        </div>
     </div>
 </div>
 
@@ -1458,13 +1487,59 @@ function showInfoToast() {
 }
 
 // ==================== INIT ====================
+(function(){
+    const cv = document.getElementById('loadingCanvas');
+    if (!cv) return;
+    const ctx = cv.getContext('2d');
+    function resize(){ cv.width = cv.offsetWidth; cv.height = cv.offsetHeight; }
+    resize();
+    const pts = Array.from({length:70}, ()=>({
+        x: Math.random()*cv.width, y: Math.random()*cv.height,
+        vx: (Math.random()-.5)*.25, vy: (Math.random()-.5)*.25,
+        r: Math.random()*1.4+.3, a: Math.random()*.25+.04,
+        col: Math.random()>.7 ? '230,57,70' : '255,255,255'
+    }));
+    (function draw(){
+        ctx.clearRect(0,0,cv.width,cv.height);
+        pts.forEach(p=>{
+            ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
+            ctx.fillStyle=`rgba(${p.col},${p.a})`; ctx.fill();
+            p.x+=p.vx; p.y+=p.vy;
+            if(p.x<0)p.x=cv.width; if(p.x>cv.width)p.x=0;
+            if(p.y<0)p.y=cv.height; if(p.y>cv.height)p.y=0;
+        });
+        requestAnimationFrame(draw);
+    })();
+    const steps = [
+        {pct:18, label:'Verbinden…'},
+        {pct:42, label:'Assets laden…'},
+        {pct:65, label:'Daten prüfen…'},
+        {pct:86, label:'Module starten…'},
+        {pct:100, label:'Bereit!'}
+    ];
+    const bar = document.getElementById('lsBar');
+    const stxt = document.getElementById('lsStatusTxt');
+    const dots = document.querySelectorAll('.ls-sd');
+    let si = 0;
+    function nextStep(){
+        if(si >= steps.length) return;
+        const s = steps[si];
+        if(bar) bar.style.width = s.pct + '%';
+        if(stxt) stxt.textContent = s.label;
+        dots.forEach((d,i) => d.classList.toggle('active', i === si));
+        si++;
+        if(si < steps.length) setTimeout(nextStep, 550 + Math.random()*250);
+    }
+    setTimeout(nextStep, 300);
+})();
+
 setTimeout(() => {
     document.getElementById('loadingScreen').classList.add('fade-out');
     setTimeout(() => {
         document.getElementById('loadingScreen').style.display = 'none';
         document.getElementById('loginContainer').style.display = 'flex';
-    }, 500);
-}, 1500);
+    }, 600);
+}, 3900);
 
 document.getElementById('app').classList.add('hidden');
 document.getElementById('footerYear').textContent = new Date().getFullYear();
