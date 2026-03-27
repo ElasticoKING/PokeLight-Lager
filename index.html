@@ -854,6 +854,7 @@
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getAuth, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 const firebaseConfig = {
     apiKey: "AIzaSyBPECfyYRVTtQ6U7yTBYx0X6_RV2j9UkqQ",
@@ -866,6 +867,7 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
+const db = getFirestore(app);
 
 // ==================== USER CONFIG (kein Passwort mehr hier!) ====================
 const USERS = {
@@ -1017,13 +1019,13 @@ window.checkPassword = async function() {
         setTimeout(() => {
             const loginContainer = document.getElementById('loginContainer');
             loginContainer.classList.add('fade-out');
-            setTimeout(() => {
+            setTimeout(async () => {
                 loginContainer.style.display = 'none';
                 document.getElementById('app').classList.remove('hidden');
                 document.getElementById('headerUser').innerHTML =
                     `<img src="${user.img}" style="width:16px;height:16px;object-fit:contain;image-rendering:pixelated;vertical-align:middle;margin-right:3px"> ${user.name}`;
                 document.getElementById('inv-title-user').textContent = user.name + 's';
-                renderTable();
+                await renderTable();
                 setTimeout(startMusic, 800);
                 setTimeout(saveChartSnapshot, 500);
                 setTimeout(showInfoToast, 500);
@@ -1062,20 +1064,44 @@ document.getElementById('passwordInput').addEventListener('keypress', e => {
     if (e.key === 'Enter') window.checkPassword();
 });
 
-// ==================== INVENTUR DATA ====================
-function getStorageKey() {
-    return currentUser ? USERS[currentUser].storageKey : 'pokelight_inventur_default';
+// ==================== INVENTUR DATA (Firestore) ====================
+function getFirestoreKey() {
+    return currentUser || 'default';
 }
-function loadData() {
-    try { return JSON.parse(localStorage.getItem(getStorageKey())) || []; } catch { return []; }
+
+async function loadData() {
+    try {
+        const ref = doc(db, 'users', getFirestoreKey());
+        const snap = await getDoc(ref);
+        if (snap.exists()) return snap.data().inventur || [];
+        return [];
+    } catch { return []; }
 }
-function saveData(data) {
-    localStorage.setItem(getStorageKey(), JSON.stringify(data));
+
+async function saveData(data) {
+    try {
+        const ref = doc(db, 'users', getFirestoreKey());
+        const snap = await getDoc(ref);
+        const existing = snap.exists() ? snap.data() : {};
+        await setDoc(ref, { ...existing, inventur: data });
+    } catch(e) { console.error('Speichern fehlgeschlagen:', e); }
+}
+
+function loadSoldHistory() {
+    try { return JSON.parse(localStorage.getItem('pokelight_sold_' + (currentUser||'default'))) || []; }
+    catch { return []; }
+}
+function saveSoldHistory(data) {
+    localStorage.setItem('pokelight_sold_' + (currentUser||'default'), JSON.stringify(data));
+}
+function loadChartHistory() {
+    try { return JSON.parse(localStorage.getItem('pokelight_chart_' + (currentUser||'default'))) || []; }
+    catch { return []; }
 }
 
 // ==================== STATS ====================
-function updateStats() {
-    const all = loadData();
+async function updateStats() {
+    const all = await loadData();
     document.getElementById('statProdukte').textContent = all.length;
     document.getElementById('statWert').textContent = 'CHF ' + chf(all.reduce((s,p) => s + (Number(p.preis)||0)*(Number(p.menge)||0), 0));
     const history = loadSoldHistory();
@@ -1091,8 +1117,8 @@ function updateStats() {
 // ==================== TABLE ====================
 const BADGE_MAP = { 'Booster Pack':'badge-booster','Display':'badge-display','Tin':'badge-tin','ETB':'badge-etb','Blister':'badge-blister','Promo':'badge-promo','Andere':'badge-andere' };
 
-function renderTable() {
-    const data = loadData();
+async function renderTable() {
+    const data = await loadData();
     const search = document.getElementById('searchBox').value.toLowerCase();
     const katFilter = document.getElementById('filterKategorie').value;
     const sortBy = document.getElementById('filterSortierung').value;
@@ -1147,12 +1173,9 @@ function renderTable() {
 
 // ==================== VERKAUF ====================
 let sellingId = null;
-function getSoldKey() { return 'pokelight_sold_' + (currentUser || 'default'); }
-function loadSoldHistory() { try { return JSON.parse(localStorage.getItem(getSoldKey())) || []; } catch { return []; } }
-function saveSoldHistory(data) { localStorage.setItem(getSoldKey(), JSON.stringify(data)); }
 
-window.openSellModal = function(id) {
-    const data = loadData();
+window.openSellModal = async function(id) {
+    const data = await loadData();
     const p = data.find(x => x.id === id);
     if (!p) return;
     sellingId = id;
@@ -1168,10 +1191,10 @@ window.openSellModal = function(id) {
 
 window.closeSellModal = function() { document.getElementById('sellModalOverlay').classList.remove('active'); sellingId = null; };
 
-window.confirmSell = function() {
+window.confirmSell = async function() {
     if (!sellingId) return;
     const menge = parseInt(document.getElementById('sellMenge').value);
-    const data = loadData();
+    const data = await loadData();
     const idx = data.findIndex(x => x.id === sellingId);
     if (idx === -1) return;
     const p = data[idx];
@@ -1184,11 +1207,11 @@ window.confirmSell = function() {
     const neueMenge = p.menge - menge;
     if (neueMenge === 0) { data.splice(idx, 1); showToast(`✅ ${p.name} komplett verkauft & entfernt!`); }
     else { data[idx].menge = neueMenge; showToast(`✅ ${menge}× ${p.name} verkauft — noch ${neueMenge} übrig`); }
-    saveData(data); closeSellModal(); renderTable(); saveChartSnapshot();
+    await saveData(data); closeSellModal(); await renderTable(); saveChartSnapshot();
 };
 
-document.getElementById('sellMenge').addEventListener('input', function() {
-    const data = loadData(); const p = data.find(x => x.id === sellingId); if (!p) return;
+document.getElementById('sellMenge').addEventListener('input', async function() {
+    const data = await loadData(); const p = data.find(x => x.id === sellingId); if (!p) return;
     document.getElementById('sellWarning').style.display = parseInt(this.value) > p.menge ? 'block' : 'none';
 });
 
@@ -1248,8 +1271,8 @@ window.openAddModal = function() {
     setTimeout(() => document.getElementById('fName').focus(), 100);
 };
 
-window.openEditModal = function(id) {
-    const data = loadData(); const p = data.find(x => x.id === id); if (!p) return;
+window.openEditModal = async function(id) {
+    const data = await loadData(); const p = data.find(x => x.id === id); if (!p) return;
     editingId = id;
     document.getElementById('modalTitle').textContent = '✏️ Produkt bearbeiten';
     document.getElementById('fName').value = p.name;
@@ -1263,7 +1286,7 @@ window.openEditModal = function(id) {
 
 window.closeModal = function() { document.getElementById('modalOverlay').classList.remove('active'); };
 
-window.saveProduct = function() {
+window.saveProduct = async function() {
     const name = document.getElementById('fName').value.trim();
     const kategorie = document.getElementById('fKategorie').value;
     const menge = parseInt(document.getElementById('fMenge').value);
@@ -1273,24 +1296,25 @@ window.saveProduct = function() {
     if (!name) { showToast('⚠️ Bitte Produktname eingeben!'); return; }
     if (isNaN(menge) || menge < 0) { showToast('⚠️ Bitte gültige Menge eingeben!'); return; }
     if (isNaN(preis) || preis < 0) { showToast('⚠️ Bitte gültigen EK-Preis eingeben!'); return; }
-    const data = loadData();
+    const data = await loadData();
     if (editingId) {
         const idx = data.findIndex(x => x.id === editingId);
         if (idx !== -1) { data[idx] = { ...data[idx], name, kategorie, menge, preis, datum, notiz }; showToast('✅ Produkt aktualisiert!'); }
     } else {
         data.push({ id: Date.now().toString(), name, kategorie, menge, preis, datum, notiz }); showToast('✅ Produkt hinzugefügt!');
     }
-    saveData(data); closeModal(); renderTable();
+    await saveData(data); closeModal(); await renderTable();
 };
 
-window.deleteProduct = function(id) {
+window.deleteProduct = async function(id) {
     if (!confirm('Dieses Produkt wirklich löschen?')) return;
-    saveData(loadData().filter(x => x.id !== id)); renderTable(); showToast('🗑️ Produkt gelöscht');
+    const data = await loadData();
+    await saveData(data.filter(x => x.id !== id)); await renderTable(); showToast('🗑️ Produkt gelöscht');
 };
 
 // ==================== EXPORT CSV ====================
-window.exportCSV = function() {
-    const data = loadData();
+window.exportCSV = async function() {
+    const data = await loadData();
     if (data.length === 0) { showToast('⚠️ Keine Daten zum Exportieren!'); return; }
     const header = ['Nr','Produktname','Kategorie','Menge','EK Preis (CHF)','Lagerwert (CHF)','Kaufdatum','Notiz'];
     const rows = data.map((p,i) => [i+1,`"${(p.name||'').replace(/"/g,'""')}"`,p.kategorie,p.menge,Number(p.preis).toFixed(2),(Number(p.preis)*Number(p.menge)).toFixed(2),p.datum||'',`"${(p.notiz||'').replace(/"/g,'""')}"`]);
@@ -1309,7 +1333,7 @@ window.exportCSV = function() {
 window.importCSV = function(event) {
     const file = event.target.files[0]; if (!file) return;
     const reader = new FileReader();
-    reader.onload = function(e) {
+    reader.onload = async function(e) {
         try {
             const text = e.target.result.replace(/^\uFEFF/,'');
             const lines = text.split('\n').map(l=>l.trim()).filter(l=>l.length>0);
@@ -1329,17 +1353,17 @@ window.importCSV = function(event) {
                 importedProducts.push({id:Date.now().toString()+'_'+i, name, kategorie:VALID_KAT.includes(kategorie)?kategorie:'Andere', menge, preis, datum, notiz});
             }
             if (importedProducts.length === 0) { showToast('⚠️ Keine gültigen Produkte gefunden!'); return; }
-            const existing = loadData();
+            const existing = await loadData();
             if (existing.length > 0) {
                 const choice = confirm(`${importedProducts.length} Produkte in der CSV gefunden.\n\nOK = Bestehende Daten ERSETZEN\nAbbrechen = Zur bestehenden Liste HINZUFÜGEN`);
-                if (choice) { saveData(importedProducts); showToast(`✅ ${importedProducts.length} Produkte importiert (ersetzt)!`); }
+                if (choice) { await saveData(importedProducts); showToast(`✅ ${importedProducts.length} Produkte importiert (ersetzt)!`); }
                 else {
                     const existingNames = existing.map(p=>p.name.toLowerCase());
                     const newOnes = importedProducts.filter(p=>!existingNames.includes(p.name.toLowerCase()));
-                    saveData([...existing,...newOnes]); showToast(`✅ ${newOnes.length} neue Produkte hinzugefügt!`);
+                    await saveData([...existing,...newOnes]); showToast(`✅ ${newOnes.length} neue Produkte hinzugefügt!`);
                 }
-            } else { saveData(importedProducts); showToast(`✅ ${importedProducts.length} Produkte importiert!`); }
-            renderTable();
+            } else { await saveData(importedProducts); showToast(`✅ ${importedProducts.length} Produkte importiert!`); }
+            await renderTable();
         } catch(err) { console.error(err); showToast('❌ Fehler beim Importieren!'); }
         event.target.value = '';
     };
@@ -1362,11 +1386,9 @@ const CHART_HISTORY_KEY_PREFIX = 'pokelight_chart_';
 let chartInstance = null;
 let currentChartMode = 'wert';
 
-function getChartKey() { return CHART_HISTORY_KEY_PREFIX + (currentUser||'default'); }
-function loadChartHistory() { try { return JSON.parse(localStorage.getItem(getChartKey()))||[]; } catch { return []; } }
 
-function saveChartSnapshot() {
-    const data = loadData(); const history = loadChartHistory();
+async function saveChartSnapshot() {
+    const data = await loadData(); const history = loadChartHistory();
     const today = new Date().toISOString().split('T')[0];
     const lagerwert = data.reduce((s,p) => s+(Number(p.preis)||0)*(Number(p.menge)||0),0);
     const menge = data.reduce((s,p) => s+(Number(p.menge)||0),0);
@@ -1378,9 +1400,9 @@ function saveChartSnapshot() {
     localStorage.setItem(getChartKey(), JSON.stringify(history));
 }
 
-window.openChartModal = function() {
-    saveChartSnapshot();
-    const history = loadChartHistory(); const data = loadData();
+window.openChartModal = async function() {
+    await saveChartSnapshot();
+    const history = loadChartHistory(); const data = await loadData();
     const currentWert = data.reduce((s,p) => s+(Number(p.preis)||0)*(Number(p.menge)||0),0);
     const maxWert = history.length > 0 ? Math.max(...history.map(h=>h.lagerwert)) : 0;
     document.getElementById('chartCurrentVal').textContent = 'CHF '+chf(currentWert);
@@ -1427,16 +1449,16 @@ const EMAILJS_SERVICE  = 'service_8imvftj';
 const EMAILJS_TEMPLATE = 'template_me4ldfm';
 const EMAILJS_KEY      = 'OuZssJXBRhMGzTi08';
 
-window.openEmailModal = function() {
-    const data = loadData(); if (data.length===0) {showToast('⚠️ Keine Produkte zum Versenden!');return;}
+window.openEmailModal = async function() {
+    const data = await loadData(); if (data.length===0) {showToast('⚠️ Keine Produkte zum Versenden!');return;}
     document.getElementById('emailStatus').innerHTML=''; document.getElementById('emailTo').value=''; document.getElementById('emailMessage').value='';
     document.getElementById('emailModalOverlay').classList.add('active');
     setTimeout(()=>document.getElementById('emailTo').focus(),100);
 };
 window.closeEmailModal = function() { document.getElementById('emailModalOverlay').classList.remove('active'); };
 
-function generateCSVString() {
-    const data = loadData();
+async function generateCSVString() {
+    const data = await loadData();
     const header = ['Nr','Produktname','Kategorie','Menge','EK Preis (CHF)','Lagerwert (CHF)','Kaufdatum','Notiz'];
     const rows = data.map((p,i) => [i+1,`"${(p.name||'').replace(/"/g,'""')}"`,p.kategorie,p.menge,Number(p.preis).toFixed(2),(Number(p.preis)*Number(p.menge)).toFixed(2),p.datum||'',`"${(p.notiz||'').replace(/"/g,'""')}"`]);
     const totalMenge=data.reduce((s,p)=>s+Number(p.menge),0); const totalWert=data.reduce((s,p)=>s+Number(p.preis)*Number(p.menge),0);
@@ -1450,12 +1472,12 @@ window.sendEmailWithCSV = async function() {
     const statusEl = document.getElementById('emailStatus');
     const btn = document.getElementById('sendEmailBtn');
     if (!to||!to.includes('@')) { statusEl.innerHTML='<span style="color:#f87171;">⚠️ Bitte gültige E-Mail-Adresse eingeben.</span>'; return; }
-    const data = loadData(); if (data.length===0) {showToast('⚠️ Keine Produkte!');return;}
+    const data = await loadData(); if (data.length===0) {showToast('⚠️ Keine Produkte!');return;}
     btn.disabled=true; btn.textContent='⏳ CSV wird hochgeladen...'; statusEl.innerHTML='';
     const user = USERS[currentUser];
     const datum = new Date().toLocaleDateString('de-CH');
     const totalWert = data.reduce((s,p)=>s+Number(p.preis)*Number(p.menge),0);
-    const csvContent = '\uFEFF'+generateCSVString();
+    const csvContent = '\uFEFF'+ await generateCSVString();
     const filename = `PokeLight_Inventur_${user?.name}_${new Date().toISOString().split('T')[0]}.csv`;
     try {
         const blob = new Blob([csvContent],{type:'text/csv;charset=utf-8;'});
@@ -1552,6 +1574,33 @@ document.getElementById('chartModalOverlay').addEventListener('click', function(
 document.getElementById('searchBox').addEventListener('input', renderTable);
 document.getElementById('filterKategorie').addEventListener('change', renderTable);
 document.getElementById('filterSortierung').addEventListener('change', renderTable);
+
+// Globale Funktionen für inline onclick Handler
+window.openAddModal = openAddModal;
+window.exportCSV = exportCSV;
+window.importCSV = importCSV;
+window.openEmailModal = openEmailModal;
+window.closeEmailModal = closeEmailModal;
+window.sendEmailWithCSV = sendEmailWithCSV;
+window.logout = logout;
+window.toggleMusic = toggleMusic;
+window.selectUser = selectUser;
+window.backToUserSelect = backToUserSelect;
+window.checkPassword = checkPassword;
+window.openSellModal = openSellModal;
+window.closeSellModal = closeSellModal;
+window.confirmSell = confirmSell;
+window.openSoldModal = openSoldModal;
+window.closeSoldModal = closeSoldModal;
+window.clearSoldHistory = clearSoldHistory;
+window.deleteSoldEntry = deleteSoldEntry;
+window.openEditModal = openEditModal;
+window.closeModal = closeModal;
+window.saveProduct = saveProduct;
+window.deleteProduct = deleteProduct;
+window.openChartModal = openChartModal;
+window.closeChartModal = closeChartModal;
+window.setChartMode = setChartMode;
 
 </script>
 </body>
