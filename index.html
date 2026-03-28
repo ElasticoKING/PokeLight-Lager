@@ -190,6 +190,12 @@
             border-bottom: 1px solid rgba(106, 17, 255, 0.3);
             position: sticky; top: 0; z-index: 100;
         }
+        .header-right-top {
+            display: none; /* nur mobil sichtbar */
+        }
+        .email-logout-row {
+            display: contents; /* desktop: verhält sich normal im grid */
+        }
 
         .logo-area { display: flex; align-items: center; gap: 1rem; }
         .logo-img {
@@ -417,11 +423,16 @@
             .brand { font-size: 0.95rem; }
             .logo-img { width: 32px; height: 32px; border-radius: 8px; }
             #headerUser { font-size: 0.65rem; }
+            .header { position: relative; }
             .header-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 0.4rem; width: 100%; }
             .btn { padding: 0.5rem 0.6rem; font-size: 0.75rem; border-radius: 1.2rem; }
             .btn-primary { grid-column: 1 / -1; }
             .music-toggle-btn { width: 32px; height: 32px; font-size: 0.85rem; }
             .logout-btn { font-size: 0.75rem; padding: 0.5rem 0.8rem; border-radius: 1.2rem; }
+            .header-right-top { display: flex; align-items: center; position: absolute; top: 0.6rem; right: 0.8rem; }
+            .email-logout-row { grid-column: 1 / -1; display: flex; gap: 0.4rem; }
+            .email-logout-row .btn-email { flex: 1; }
+            .email-logout-row .logout-btn { flex-shrink: 0; white-space: nowrap; }
             .content-area { padding: 0.8rem 0.7rem; padding-bottom: 5rem; }
             .inv-title { font-size: 1.3rem; }
             .inv-subtitle { font-size: 0.78rem; }
@@ -623,14 +634,18 @@
                 <div id="headerUser" style="font-size:0.72rem;color:rgba(255,255,255,0.4);margin-top:1px;"></div>
             </div>
         </div>
+        <div class="header-right-top">
+            <button class="music-toggle-btn" id="musicToggleBtn" onclick="toggleMusic()" title="Musik an/aus">🔊</button>
+        </div>
         <div class="header-actions">
             <button class="btn btn-primary" onclick="openAddModal()">+ Produkt hinzufügen</button>
             <button class="btn btn-export" onclick="exportCSV()">⬇ Export CSV</button>
             <button class="btn btn-import" onclick="document.getElementById('csvImportInput').click()">⬆ Import CSV</button>
             <input type="file" id="csvImportInput" accept=".csv" style="display:none" onchange="importCSV(event)">
-            <button class="btn btn-email" onclick="openEmailModal()">📧 Per E-Mail senden</button>
-            <button class="music-toggle-btn" id="musicToggleBtn" onclick="toggleMusic()" title="Musik an/aus">🔊</button>
-            <button class="logout-btn" onclick="logout()">Verlassen</button>
+            <div class="email-logout-row">
+                <button class="btn btn-email" onclick="openEmailModal()">📧 Per E-Mail senden</button>
+                <button class="logout-btn" onclick="logout()">Verlassen</button>
+            </div>
         </div>
     </div>
 
