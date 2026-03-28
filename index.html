@@ -1576,7 +1576,7 @@ function showInfoToast() {
         {pct:42, label:'Assets laden…'},
         {pct:65, label:'Daten prüfen…'},
         {pct:86, label:'Module starten…'},
-        {pct:100, label:'Bereit!'}
+        {pct:100, label:'Verbunden!'}
     ];
     const bar = document.getElementById('lsBar');
     const stxt = document.getElementById('lsStatusTxt');
@@ -1600,7 +1600,7 @@ setTimeout(() => {
         document.getElementById('loadingScreen').style.display = 'none';
         document.getElementById('loginContainer').style.display = 'flex';
     }, 600);
-}, 3900);
+}, 6000);
 
 document.getElementById('app').classList.add('hidden');
 document.getElementById('footerYear').textContent = new Date().getFullYear();
