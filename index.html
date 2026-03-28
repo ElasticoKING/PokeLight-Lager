@@ -690,7 +690,7 @@
             <img class="footer-logo" src="https://i.imgur.com/bl9vMAE.png" alt="PokeLight">
             <span>© <span id="footerYear"></span> PokeLight — Pokémon Inventur</span>
         </div>
-        <div style="color: rgba(255,255,255,0.25); font-size:0.75rem;">Daten lokal gespeichert 🔒</div>
+        <div style="color: rgba(255,255,255,0.25); font-size:0.75rem;">Daten via Datenbank gespeichert 🔒</div>
     </footer>
 </div>
 
@@ -1542,9 +1542,9 @@ function escapeHtml(str) { if(!str)return''; return String(str).replace(/[&<>]/g
 function showToast(msg) { const t=document.createElement('div'); t.className='toast'; t.textContent=msg; document.body.appendChild(t); setTimeout(()=>t.remove(),2500); }
 function showInfoToast() {
     const t=document.createElement('div'); t.className='info-toast';
-    t.innerHTML=`<div class="info-toast-header"><span class="info-toast-icon">⚡</span><span class="info-toast-title">Update 1.5 — Firebase Auth</span></div><div class="info-toast-body">• Login jetzt sicher über Firebase Auth 🔒<br>• Passwörter nicht mehr im Code sichtbar<br>• Alles andere bleibt gleich wie v1.4</div><div class="info-toast-bar"><div class="info-toast-bar-inner"></div></div>`;
+    t.innerHTML=`<div class="info-toast-header"><span class="info-toast-icon">⚡</span><span class="info-toast-title">Update 1.5 - Notes:</span></div><div class="info-toast-body">• FireBase ish jetzt üsi Datebank 🔒<br>• Passwörter cha me jetzt via Mail zrücksetze<br>• Alles andere blibt glich wie v1.4</div><div class="info-toast-bar"><div class="info-toast-bar-inner"></div></div>`;
     document.body.appendChild(t);
-    setTimeout(()=>{ t.classList.add('fade-out'); setTimeout(()=>t.remove(),400); },10000);
+    setTimeout(()=>{ t.classList.add('fade-out'); setTimeout(()=>t.remove(),400); },8000);
 }
 
 // ==================== INIT ====================
