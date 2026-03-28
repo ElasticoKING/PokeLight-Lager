@@ -191,10 +191,13 @@
             position: sticky; top: 0; z-index: 100;
         }
         .header-right-top {
-            display: none; /* nur mobil sichtbar */
+            display: none; /* wird nur mobil genutzt */
         }
         .email-logout-row {
             display: contents; /* desktop: verhält sich normal im grid */
+        }
+        .music-btn-desktop {
+            display: inline-flex;
         }
 
         .logo-area { display: flex; align-items: center; gap: 1rem; }
@@ -428,6 +431,7 @@
             .btn { padding: 0.5rem 0.6rem; font-size: 0.75rem; border-radius: 1.2rem; }
             .btn-primary { grid-column: 1 / -1; }
             .music-toggle-btn { width: 32px; height: 32px; font-size: 0.85rem; }
+            .music-btn-desktop { display: none !important; }
             .logout-btn { font-size: 0.75rem; padding: 0.5rem 0.8rem; border-radius: 1.2rem; }
             .header-right-top { display: flex; align-items: center; position: absolute; top: 0.6rem; right: 0.8rem; }
             .email-logout-row { grid-column: 1 / -1; display: flex; gap: 0.4rem; }
@@ -635,7 +639,7 @@
             </div>
         </div>
         <div class="header-right-top">
-            <button class="music-toggle-btn" id="musicToggleBtn" onclick="toggleMusic()" title="Musik an/aus">🔊</button>
+            <button class="music-toggle-btn" id="musicToggleBtnMobile" onclick="toggleMusic()" title="Musik an/aus">🔊</button>
         </div>
         <div class="header-actions">
             <button class="btn btn-primary" onclick="openAddModal()">+ Produkt hinzufügen</button>
@@ -644,6 +648,7 @@
             <input type="file" id="csvImportInput" accept=".csv" style="display:none" onchange="importCSV(event)">
             <div class="email-logout-row">
                 <button class="btn btn-email" onclick="openEmailModal()">📧 Per E-Mail senden</button>
+                <button class="music-toggle-btn music-btn-desktop" id="musicToggleBtn" onclick="toggleMusic()" title="Musik an/aus">🔊</button>
                 <button class="logout-btn" onclick="logout()">Verlassen</button>
             </div>
         </div>
@@ -975,8 +980,7 @@ function startMusic() {
     audio.volume = 0.05;
     audio.play().then(() => {
         musicPlaying = true;
-        const btn = document.getElementById('musicToggleBtn');
-        if (btn) { btn.textContent = '🔊'; btn.classList.add('playing'); }
+        syncMusicButtons(true);
     }).catch(() => {});
 }
 
@@ -985,13 +989,20 @@ function stopMusic() {
     if (!audio) return;
     audio.pause(); audio.currentTime = 0;
     musicPlaying = false;
-    const btn = document.getElementById('musicToggleBtn');
-    if (btn) { btn.textContent = '🔇'; btn.classList.remove('playing'); }
+    syncMusicButtons(false);
 }
 
 window.toggleMusic = function() {
     if (musicPlaying) stopMusic(); else startMusic();
 };
+function syncMusicButtons(playing) {
+    ['musicToggleBtn','musicToggleBtnMobile'].forEach(id => {
+        const b = document.getElementById(id);
+        if (!b) return;
+        b.textContent = playing ? '🔊' : '🔇';
+        playing ? b.classList.add('playing') : b.classList.remove('playing');
+    });
+}
 
 // ==================== LOGIN ====================
 window.selectUser = function(userKey) {
