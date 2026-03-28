@@ -1087,16 +1087,37 @@ async function saveData(data) {
     } catch(e) { console.error('Speichern fehlgeschlagen:', e); }
 }
 
-function loadSoldHistory() {
-    try { return JSON.parse(localStorage.getItem('pokelight_sold_' + (currentUser||'default'))) || []; }
-    catch { return []; }
+async function loadSoldHistory() {
+    try {
+        const ref = doc(db, 'users', getFirestoreKey());
+        const snap = await getDoc(ref);
+        if (snap.exists()) return snap.data().soldHistory || [];
+        return [];
+    } catch { return []; }
 }
-function saveSoldHistory(data) {
-    localStorage.setItem('pokelight_sold_' + (currentUser||'default'), JSON.stringify(data));
+async function saveSoldHistory(data) {
+    try {
+        const ref = doc(db, 'users', getFirestoreKey());
+        const snap = await getDoc(ref);
+        const existing = snap.exists() ? snap.data() : {};
+        await setDoc(ref, { ...existing, soldHistory: data });
+    } catch(e) { console.error('Speichern fehlgeschlagen:', e); }
 }
-function loadChartHistory() {
-    try { return JSON.parse(localStorage.getItem('pokelight_chart_' + (currentUser||'default'))) || []; }
-    catch { return []; }
+async function loadChartHistory() {
+    try {
+        const ref = doc(db, 'users', getFirestoreKey());
+        const snap = await getDoc(ref);
+        if (snap.exists()) return snap.data().chartHistory || [];
+        return [];
+    } catch { return []; }
+}
+async function saveChartHistory(data) {
+    try {
+        const ref = doc(db, 'users', getFirestoreKey());
+        const snap = await getDoc(ref);
+        const existing = snap.exists() ? snap.data() : {};
+        await setDoc(ref, { ...existing, chartHistory: data });
+    } catch(e) { console.error('Chart speichern fehlgeschlagen:', e); }
 }
 
 // ==================== STATS ====================
@@ -1104,7 +1125,7 @@ async function updateStats() {
     const all = await loadData();
     document.getElementById('statProdukte').textContent = all.length;
     document.getElementById('statWert').textContent = 'CHF ' + chf(all.reduce((s,p) => s + (Number(p.preis)||0)*(Number(p.menge)||0), 0));
-    const history = loadSoldHistory();
+    const history = await loadSoldHistory();
     const gewinn = history.reduce((s,e) => s + (Number(e.vkPreis||0) - Number(e.preis)) * Number(e.menge), 0);
     const gewinnEl = document.getElementById('statGewinn');
     if (gewinnEl) {
@@ -1200,10 +1221,10 @@ window.confirmSell = async function() {
     const p = data[idx];
     if (isNaN(menge) || menge <= 0) { showToast('⚠️ Bitte eine gültige Menge eingeben!'); return; }
     if (menge > p.menge) { document.getElementById('sellWarning').style.display = 'block'; return; }
-    const history = loadSoldHistory();
+    const history = await loadSoldHistory();
     const vkPreis = parseFloat(document.getElementById('sellVKPreis').value) || 0;
     history.unshift({ id: Date.now().toString(), name: p.name, kategorie: p.kategorie, menge, preis: p.preis, vkPreis, datum: new Date().toLocaleDateString('de-CH') });
-    saveSoldHistory(history);
+    await saveSoldHistory(history);
     const neueMenge = p.menge - menge;
     if (neueMenge === 0) { data.splice(idx, 1); showToast(`✅ ${p.name} komplett verkauft & entfernt!`); }
     else { data[idx].menge = neueMenge; showToast(`✅ ${menge}× ${p.name} verkauft — noch ${neueMenge} übrig`); }
@@ -1216,8 +1237,8 @@ document.getElementById('sellMenge').addEventListener('input', async function() 
 });
 
 // ==================== VERKAUFSHISTORIE ====================
-window.openSoldModal = function() {
-    const history = loadSoldHistory();
+window.openSoldModal = async function() {
+    const history = await loadSoldHistory();
     const user = USERS[currentUser];
     const totalMenge = history.reduce((s,e) => s + Number(e.menge), 0);
     const totalGewinn = history.reduce((s,e) => s + (Number(e.vkPreis||0) - Number(e.preis)) * Number(e.menge), 0);
@@ -1252,8 +1273,8 @@ window.openSoldModal = function() {
 };
 
 window.closeSoldModal = function() { document.getElementById('soldModalOverlay').classList.remove('active'); };
-window.clearSoldHistory = function() { if (!confirm('Gesamten Verkaufsverlauf löschen?')) return; saveSoldHistory([]); openSoldModal(); showToast('🗑️ Verkaufsverlauf gelöscht'); };
-window.deleteSoldEntry = function(id) { saveSoldHistory(loadSoldHistory().filter(e => e.id !== id)); openSoldModal(); updateStats(); showToast('🗑️ Eintrag gelöscht'); };
+window.clearSoldHistory = async function() { if (!confirm('Gesamten Verkaufsverlauf löschen?')) return; await saveSoldHistory([]); await openSoldModal(); showToast('🗑️ Verkaufsverlauf gelöscht'); };
+window.deleteSoldEntry = async function(id) { const h = await loadSoldHistory(); await saveSoldHistory(h.filter(e => e.id !== id)); await openSoldModal(); await updateStats(); showToast('🗑️ Eintrag gelöscht'); };
 
 // ==================== MODAL ====================
 let editingId = null;
@@ -1388,7 +1409,8 @@ let currentChartMode = 'wert';
 
 
 async function saveChartSnapshot() {
-    const data = await loadData(); const history = loadChartHistory();
+    const data = await loadData();
+    const history = await loadChartHistory();
     const today = new Date().toISOString().split('T')[0];
     const lagerwert = data.reduce((s,p) => s+(Number(p.preis)||0)*(Number(p.menge)||0),0);
     const menge = data.reduce((s,p) => s+(Number(p.menge)||0),0);
@@ -1397,12 +1419,12 @@ async function saveChartSnapshot() {
     if (lastEntry && lastEntry.date === today) { lastEntry.lagerwert=lagerwert; lastEntry.menge=menge; lastEntry.produkte=produkte; }
     else { history.push({date:today,lagerwert,menge,produkte}); }
     if (history.length > 90) history.splice(0, history.length-90);
-    localStorage.setItem(getChartKey(), JSON.stringify(history));
+    await saveChartHistory(history);
 }
 
 window.openChartModal = async function() {
     await saveChartSnapshot();
-    const history = loadChartHistory(); const data = await loadData();
+    const history = await loadChartHistory(); const data = await loadData();
     const currentWert = data.reduce((s,p) => s+(Number(p.preis)||0)*(Number(p.menge)||0),0);
     const maxWert = history.length > 0 ? Math.max(...history.map(h=>h.lagerwert)) : 0;
     document.getElementById('chartCurrentVal').textContent = 'CHF '+chf(currentWert);
@@ -1410,19 +1432,19 @@ window.openChartModal = async function() {
     document.getElementById('chartEntries').textContent = history.length;
     document.getElementById('chartModalSub').textContent = `Verlauf für ${USERS[currentUser]?.name||'Benutzer'} · ${history.length} Snapshots`;
     document.getElementById('chartModalOverlay').classList.add('active');
-    renderChart(currentChartMode);
+    await renderChart(currentChartMode);
 };
 
 window.closeChartModal = function() { document.getElementById('chartModalOverlay').classList.remove('active'); };
 
-window.setChartMode = function(mode, btn) {
+window.setChartMode = async function(mode, btn) {
     currentChartMode = mode;
     document.querySelectorAll('.chart-tab').forEach(t=>t.classList.remove('active'));
-    btn.classList.add('active'); renderChart(mode);
+    btn.classList.add('active'); await renderChart(mode);
 };
 
-function renderChart(mode) {
-    const history = loadChartHistory();
+async function renderChart(mode) {
+    const history = await loadChartHistory();
     const canvas = document.getElementById('mainChart');
     const emptyEl = document.getElementById('chartEmpty');
     if (history.length < 2) { canvas.style.display='none'; emptyEl.style.display='flex'; return; }
