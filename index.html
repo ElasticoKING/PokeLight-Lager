@@ -872,9 +872,10 @@ const db = getFirestore(app);
 
 // ==================== USER CONFIG (kein Passwort mehr hier!) ====================
 const USERS = {
-    'amine': { name: 'Amine', email: 'douch13amine@gmail.com', avatar: '🅰️', storageKey: 'pokelight_inventur_amine', img: 'https://i.imgur.com/cEU386k.png' },
-    'simon': { name: 'Simon', email: 'simon@pokelight.ch', avatar: '🇸',  storageKey: 'pokelight_inventur_simon', img: 'https://i.imgur.com/wiExVm0.png' }
+    'amine': { name: 'Amine', _e: 'ZG91Y2gxM2FtaW5lQGdtYWlsLmNvbQ==', avatar: '🅰️', storageKey: 'pokelight_inventur_amine', img: 'https://i.imgur.com/cEU386k.png' },
+    'simon': { name: 'Simon', _e: 'c2ltb25AcG9rZWxpZ2h0LmNo',          avatar: '🇸',  storageKey: 'pokelight_inventur_simon', img: 'https://i.imgur.com/wiExVm0.png' }
 };
+function getEmail(userKey) { return atob(USERS[userKey]._e); }
 
 let currentUser = null;
 
@@ -976,9 +977,9 @@ window.resetPassword = async function() {
     const user = USERS[currentUser];
     const errorMsg = document.getElementById('errorMsg');
     try {
-        await sendPasswordResetEmail(auth, user.email);
+        await sendPasswordResetEmail(auth, getEmail(currentUser));
         errorMsg.style.color = '#34d399';
-        errorMsg.innerText = `✅ Reset-E-Mail gesendet an ${user.email}`;
+        errorMsg.innerText = `✅ Reset-E-Mail wurde gesendet!`;
         setTimeout(() => { errorMsg.innerText = ''; errorMsg.style.color = '#ff6b6b'; }, 5000);
     } catch(e) {
         errorMsg.style.color = '#ff6b6b';
@@ -1007,7 +1008,7 @@ window.checkPassword = async function() {
     errorMsg.innerText = '';
 
     try {
-        await signInWithEmailAndPassword(auth, user.email, password);
+        await signInWithEmailAndPassword(auth, getEmail(currentUser), password);
 
         const loginLogo = document.getElementById('loginLogo');
         const checkmarkWrapper = document.getElementById('checkmarkWrapper');
