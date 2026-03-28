@@ -873,7 +873,7 @@ const db = getFirestore(app);
 // ==================== USER CONFIG (kein Passwort mehr hier!) ====================
 const USERS = {
     'amine': { name: 'Amine', _e: 'ZG91Y2gxM2FtaW5lQGdtYWlsLmNvbQ==', avatar: '🅰️', storageKey: 'pokelight_inventur_amine', img: 'https://i.imgur.com/cEU386k.png' },
-    'simon': { name: 'Simon', _e: 'c2ltb25AcG9rZWxpZ2h0LmNo',          avatar: '🇸',  storageKey: 'pokelight_inventur_simon', img: 'https://i.imgur.com/wiExVm0.png' }
+    'simon': { name: 'Simon', _e: 'cG9rZS1saWdodEBvdXRsb29rLmNvbQ==',          avatar: '🇸',  storageKey: 'pokelight_inventur_simon', img: 'https://i.imgur.com/wiExVm0.png' }
 };
 function getEmail(userKey) { return atob(USERS[userKey]._e); }
 
