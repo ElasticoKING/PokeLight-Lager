@@ -563,16 +563,34 @@
 
         <!-- Benutzer Auswahl -->
         <div id="userSelectStep">
-            <p style="color:rgba(255,255,255,0.5);font-size:0.85rem;margin-bottom:1rem;">Wer bist du?</p>
-            <div style="display:flex;gap:0.8rem;margin-bottom:1.5rem;">
-                <button class="user-pick-btn" id="btnAmine" onclick="selectUser('amine')">
-                    <img class="user-pokemon-img" id="imgAmine" src="https://i.imgur.com/cEU386k.png" alt="Amine">
-                    <span>Amine</span>
-                </button>
-                <button class="user-pick-btn" id="btnSimon" onclick="selectUser('simon')">
-                    <img class="user-pokemon-img" id="imgSimon" src="https://i.imgur.com/wiExVm0.png" alt="Simon">
-                    <span>Simon</span>
-                </button>
+            <!-- Schritt 1: Benutzer & Gast Buttons -->
+            <div id="benutzerGruppeBtn" style="margin-bottom:1.5rem;">
+                <div style="display:flex;gap:0.8rem;">
+                    <button class="user-pick-btn" onclick="zeigeBenutzer()" style="padding:1.2rem 0.5rem;gap:0.5rem;">
+                        <img src="https://i.imgur.com/UGnvdcA.png" alt="Benutzer" style="width:72px;height:72px;object-fit:contain;image-rendering:pixelated;">
+                        <span>Benutzer</span>
+                    </button>
+                    <button class="user-pick-btn" onclick="loginAsGast()" style="padding:1.2rem 0.5rem;gap:0.5rem;">
+                        <img src="https://i.imgur.com/xrxjGYy_d.webp?maxwidth=760&fidelity=grand" alt="Gast" style="width:72px;height:72px;object-fit:contain;image-rendering:pixelated;">
+                        <span>Gast</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Schritt 2: User-Auswahl (versteckt) -->
+            <div id="benutzerUserList" style="display:none;">
+                <p style="color:rgba(255,255,255,0.5);font-size:0.85rem;margin-bottom:1rem;">Wer bist du?</p>
+                <div style="display:flex;gap:0.8rem;margin-bottom:1rem;">
+                    <button class="user-pick-btn" id="btnAmine" onclick="selectUser('amine')">
+                        <img class="user-pokemon-img" id="imgAmine" src="https://i.imgur.com/cEU386k.png" alt="Amine">
+                        <span>Amine</span>
+                    </button>
+                    <button class="user-pick-btn" id="btnSimon" onclick="selectUser('simon')">
+                        <img class="user-pokemon-img" id="imgSimon" src="https://i.imgur.com/wiExVm0.png" alt="Simon">
+                        <span>Simon</span>
+                    </button>
+                </div>
+                <button onclick="zurueckZuGruppen()" style="background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.15);width:100%;padding:0.6rem;border-radius:1rem;color:rgba(255,255,255,0.5);cursor:pointer;font-size:0.85rem;transition:all 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.13)'" onmouseout="this.style.background='rgba(255,255,255,0.07)'">← Zurück</button>
             </div>
         </div>
 
@@ -993,6 +1011,8 @@ window.backToUserSelect = function() {
     document.getElementById('passwordStep').style.display = 'none';
     document.getElementById('passwordInput').value = '';
     document.getElementById('errorMsg').innerText = '';
+    document.getElementById('benutzerGruppeBtn').style.display = 'block';
+    document.getElementById('benutzerUserList').style.display = 'none';
 };
 
 window.checkPassword = async function() {
@@ -1087,6 +1107,9 @@ function getFirestoreKey() {
 }
 
 async function loadData() {
+    if (currentUser === 'gast') {
+        return window._gastInventur || [];
+    }
     try {
         const ref = doc(db, 'users', getFirestoreKey());
         const snap = await getDoc(ref);
@@ -1096,6 +1119,11 @@ async function loadData() {
 }
 
 async function saveData(data) {
+    if (currentUser === 'gast') {
+        // Gast-Modus: nur im Speicher halten, nichts in DB schreiben
+        window._gastInventur = data;
+        return;
+    }
     try {
         const ref = doc(db, 'users', getFirestoreKey());
         const snap = await getDoc(ref);
@@ -1105,6 +1133,7 @@ async function saveData(data) {
 }
 
 async function loadSoldHistory() {
+    if (currentUser === 'gast') return window._gastSoldHistory || [];
     try {
         const ref = doc(db, 'users', getFirestoreKey());
         const snap = await getDoc(ref);
@@ -1113,6 +1142,7 @@ async function loadSoldHistory() {
     } catch { return []; }
 }
 async function saveSoldHistory(data) {
+    if (currentUser === 'gast') { window._gastSoldHistory = data; return; }
     try {
         const ref = doc(db, 'users', getFirestoreKey());
         const snap = await getDoc(ref);
@@ -1129,6 +1159,7 @@ async function loadChartHistory() {
     } catch { return []; }
 }
 async function saveChartHistory(data) {
+    if (currentUser === 'gast') { window._gastChartHistory = data; return; }
     try {
         const ref = doc(db, 'users', getFirestoreKey());
         const snap = await getDoc(ref);
@@ -1613,6 +1644,55 @@ document.getElementById('chartModalOverlay').addEventListener('click', function(
 document.getElementById('searchBox').addEventListener('input', renderTable);
 document.getElementById('filterKategorie').addEventListener('change', renderTable);
 document.getElementById('filterSortierung').addEventListener('change', renderTable);
+
+// ==================== BENUTZER GRUPPE ====================
+window.zeigeBenutzer = function() {
+    document.getElementById('benutzerGruppeBtn').style.display = 'none';
+    document.getElementById('benutzerUserList').style.display = 'block';
+};
+
+window.zurueckZuGruppen = function() {
+    document.getElementById('benutzerUserList').style.display = 'none';
+    document.getElementById('benutzerGruppeBtn').style.display = 'block';
+};
+
+window.loginAsGast = function() {
+    currentUser = 'gast';
+    window._gastInventur = [];
+    const user = { name: 'Gast', img: 'https://i.imgur.com/xrxjGYy_d.webp?maxwidth=760&fidelity=grand' };
+
+    // Checkmark animation
+    const loginLogo = document.getElementById('loginLogo');
+    const checkmarkWrapper = document.getElementById('checkmarkWrapper');
+    loginLogo.classList.add('rotate');
+    setTimeout(() => {
+        loginLogo.style.display = 'none';
+        checkmarkWrapper.classList.add('active');
+    }, 400);
+
+    setTimeout(() => {
+        const loginContainer = document.getElementById('loginContainer');
+        loginContainer.classList.add('fade-out');
+        setTimeout(async () => {
+            loginContainer.style.display = 'none';
+            document.getElementById('app').classList.remove('hidden');
+            document.getElementById('headerUser').innerHTML =
+                `<img src="${user.img}" style="width:16px;height:16px;object-fit:contain;vertical-align:middle;margin-right:3px"> ${user.name} <span style="font-size:0.65rem;background:rgba(255,200,0,0.15);border:1px solid rgba(255,200,0,0.3);color:#fcd34d;padding:1px 6px;border-radius:10px;margin-left:3px;">Demo</span>`;
+            document.getElementById('inv-title-user').textContent = 'Gast';
+
+            // Show demo banner
+            const banner = document.createElement('div');
+            banner.id = 'gastBanner';
+            banner.style.cssText = 'background:linear-gradient(90deg,rgba(255,200,0,0.12),rgba(255,160,0,0.08));border:1px solid rgba(255,200,0,0.25);border-radius:1rem;padding:0.7rem 1.2rem;margin-bottom:1.2rem;font-size:0.82rem;color:rgba(255,220,100,0.9);display:flex;align-items:center;gap:0.5rem;';
+            banner.innerHTML = '⚠️ <strong>Demo-Modus:</strong> Alle Änderungen sind nur temporär und werden nicht gespeichert.';
+            const contentArea = document.getElementById('contentArea');
+            contentArea.insertBefore(banner, contentArea.firstChild);
+
+            await renderTable();
+            setTimeout(startMusic, 800);
+        }, 500);
+    }, 1000);
+};
 
 // Globale Funktionen für inline onclick Handler
 window.openAddModal = openAddModal;
