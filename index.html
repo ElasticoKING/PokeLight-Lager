@@ -1066,7 +1066,7 @@
             <div class="form-group"><label class="form-label">Datum *</label><input class="form-input" id="bDatum" type="date"></div>
             <div class="form-group"><label class="form-label">Betrag (CHF) *</label><input class="form-input" id="bBetrag" type="number" min="0" step="0.01" placeholder="0.00"></div>
         </div>
-        <div class="form-group"><label class="form-label">Beschreibung *</label><input class="form-input" id="bBeschreibung" type="text" placeholder="z.B. Verkauf Display Pikachu"></div>
+        <div class="form-group"><label class="form-label">Beschreibung *</label><input class="form-input" id="bBeschreibung" type="text" placeholder="z.B. Verkauf Display"></div>
         <div class="form-row">
             <div class="form-group"><label class="form-label">Kategorie</label>
                 <select class="form-select" id="bKategorie">
@@ -1246,19 +1246,45 @@ let currentUser = null;
 
 // ==================== MUSIK ====================
 let musicPlaying = false;
+let audioUnlocked = false;
+
+function unlockAudio() {
+    if (audioUnlocked) return;
+    audioUnlocked = true;
+}
+
 function startMusic() {
-    const a=document.getElementById('bgMusic'); if(!a)return;
-    a.volume=0.05; a.play().then(()=>{musicPlaying=true;syncMusicBtn(true);}).catch(()=>{});
+    const a = document.getElementById('bgMusic');
+    if (!a || musicPlaying) return;
+    a.volume = 0.05;
+    a.currentTime = 0;
+    const p = a.play();
+    if (p !== undefined) {
+        p.then(() => { musicPlaying = true; syncMusicBtn(true); })
+         .catch(() => {
+             // Browser blockiert noch — nochmal nach kurzer Pause
+             setTimeout(() => {
+                 a.play().then(() => { musicPlaying = true; syncMusicBtn(true); }).catch(() => {});
+             }, 500);
+         });
+    }
 }
 function stopMusic() {
-    const a=document.getElementById('bgMusic'); if(!a)return;
-    a.pause(); a.currentTime=0; musicPlaying=false; syncMusicBtn(false);
+    const a = document.getElementById('bgMusic'); if (!a) return;
+    a.pause(); a.currentTime = 0; musicPlaying = false; syncMusicBtn(false);
 }
-window.toggleMusic=function(){if(musicPlaying)stopMusic();else startMusic();};
-function syncMusicBtn(p){
-    const b=document.getElementById('musicToggleBtn'); if(!b)return;
-    b.textContent=p?'🔊':'🔇'; p?b.classList.add('playing'):b.classList.remove('playing');
+window.toggleMusic = function() { if (musicPlaying) stopMusic(); else startMusic(); };
+function syncMusicBtn(p) {
+    const b = document.getElementById('musicToggleBtn'); if (!b) return;
+    b.textContent = p ? '🔊' : '🔇';
+    p ? b.classList.add('playing') : b.classList.remove('playing');
 }
+
+// Audio beim ersten Klick irgendwo freischalten
+document.addEventListener('click', function() {
+    if (audioUnlocked) return;
+    unlockAudio();
+}, { once: true });
 
 // ==================== SIDEBAR ====================
 window.switchPage = function(page) {
@@ -1339,7 +1365,8 @@ window.checkPassword=async function(){
                 document.getElementById('sidebarUserName').textContent=user.name;
                 await renderTable();
                 populateBuchYear();
-                setTimeout(startMusic,800);
+                unlockAudio();
+                startMusic();
                 setTimeout(saveChartSnapshot,500);
             },500);
         },1000);
@@ -1371,6 +1398,7 @@ document.getElementById('passwordInput').addEventListener('keypress',e=>{if(e.ke
 // ==================== GUEST LOGIN ====================
 window.loginAsGast=function(){
     currentUser='gast'; window._gastInventur=[]; window._gastBuch=[];
+    unlockAudio();
     const user={name:'Gast',img:'https://i.imgur.com/xrxjGYy_d.webp?maxwidth=760&fidelity=grand'};
     const ll=document.getElementById('loginLogo'); const cw=document.getElementById('checkmarkWrapper');
     ll.classList.add('rotate');
@@ -1386,7 +1414,7 @@ window.loginAsGast=function(){
             document.getElementById('sidebarUserName').textContent='Gast (Demo)';
             await renderTable();
             populateBuchYear();
-            setTimeout(startMusic,800);
+            startMusic();
         },500);
     },1000);
 };
@@ -1522,19 +1550,7 @@ window.saveProduct=async function(){
         if(idx!==-1){data[idx]={...data[idx],name,kategorie,menge,preis,datum,notiz,lastModified:new Date().toISOString()};showToast('✅ Aktualisiert!');}
     } else {
         data.push({id:Date.now().toString(),name,kategorie,menge,preis,datum,notiz,lastModified:new Date().toISOString()});
-        // Einkauf → sofort als Ausgabe buchen
-        const buch=await loadBuchData();
-        buch.unshift({
-            id:'inv_'+Date.now().toString(),
-            datum: datum||new Date().toISOString().split('T')[0],
-            beschreibung:`Einkauf: ${name} (${menge}×)`,
-            kategorie: kategorie,
-            typ:'ausgabe',
-            betrag: preis*menge,
-            notiz:`EK CHF ${preis.toFixed(2)}/Stk`
-        });
-        await saveBuchData(buch);
-        showToast(`✅ Produkt hinzugefügt & CHF ${(preis*menge).toFixed(2)} als Ausgabe gebucht!`);
+        showToast('✅ Produkt hinzugefügt!');
     }
     await saveData(data); closeModal(); await renderTable();
 };
@@ -1569,11 +1585,25 @@ window.confirmSell=async function(){
     history.unshift({id:Date.now().toString(),name:p.name,kategorie:p.kategorie,menge,preis:p.preis,vkPreis,datum:heute});
     await saveSoldHistory(history);
 
-    // VK → Einnahme (EK wurde beim Einkauf bereits als Ausgabe gebucht)
+    // VK → Einnahme + EK → Ausgabe beim Verkauf → echter Gewinn sichtbar
+    const buch=await loadBuchData();
+    const ts=Date.now().toString();
+
+    // EK → Ausgabe
+    buch.unshift({
+        id:'sell_ek_'+ts,
+        datum: heutISO,
+        beschreibung:`Wareneinsatz: ${p.name} (${menge}×)`,
+        kategorie: p.kategorie,
+        typ:'ausgabe',
+        betrag: Number(p.preis)*menge,
+        notiz:`EK CHF ${Number(p.preis).toFixed(2)}/Stk`
+    });
+
+    // VK → Einnahme
     if(vkPreis>0){
-        const buch=await loadBuchData();
         buch.unshift({
-            id:'sell_'+Date.now().toString(),
+            id:'sell_vk_'+ts,
             datum: heutISO,
             beschreibung:`Verkauf: ${p.name} (${menge}×)`,
             kategorie: p.kategorie,
@@ -1581,8 +1611,8 @@ window.confirmSell=async function(){
             betrag: vkPreis*menge,
             notiz:`VK CHF ${vkPreis.toFixed(2)}/Stk`
         });
-        await saveBuchData(buch);
     }
+    await saveBuchData(buch);
 
     const nm=p.menge-menge;
     if(nm===0){data.splice(idx,1);}else{data[idx].menge=nm;}
@@ -2023,7 +2053,7 @@ window.exportBuchPDF = async function() {
     // ZUSAMMENFASSUNG — 5 Karten
     // ================================================================
     const colW = CW / 5;
-    const gewinnKorr  = totalEin - totalAus + lagerWert;
+    const gewinnKorr  = totalEin - totalAus;  // NUR Einnahmen - Ausgaben
     const gKSign2     = gewinnKorr >= 0 ? '+' : '-';
     const gKColor2    = gewinnKorr >= 0 ? [22,163,74] : [220,38,38];
     const summaryLabels = ['Einnahmen','Ausgaben','Lagerbestand','Jahresgewinn','Buchungen'];
@@ -2119,9 +2149,9 @@ window.exportBuchPDF = async function() {
     if (y > PH - 80) { doc.addPage(); y = MT; }
 
     // ================================================================
-    // JAHRESABSCHLUSS — Einnahmen / Ausgaben / Lager / Gewinn
+    // JAHRESABSCHLUSS — Einnahmen / Ausgaben / Gewinn (ohne Lager im Gewinn!)
     // ================================================================
-    const gewinnKorrigiert = totalEin - totalAus + lagerWert;
+    const gewinnKorrigiert = totalEin - totalAus;  // NUR Einnahmen minus Ausgaben
     const gKSign  = gewinnKorrigiert >= 0 ? '+' : '-';
     const gKColor = gewinnKorrigiert >= 0 ? [22,163,74] : [220,38,38];
 
@@ -2131,8 +2161,8 @@ window.exportBuchPDF = async function() {
         body:[
             ['Gesamte Einnahmen (Verkäufe)',                         fmtChf(totalEin)],
             ['Gesamte Ausgaben (Einkäufe)',                          fmtChf(totalAus)],
-            ['+ Lagerbestand Ende 31.12. (noch nicht verkauft, EK)', fmtChf(lagerWert)],
-            ['Jahresgewinn / -verlust',                               `${gKSign} ${fmtChf(gewinnKorrigiert)}`],
+            ['Jahresgewinn / -verlust',                              `${gKSign} ${fmtChf(gewinnKorrigiert)}`],
+            ['Lagerbestand Ende 31.12.',                              fmtChf(lagerWert)],
         ],
         theme:'plain',
         bodyStyles: { fontSize:9, cellPadding:{top:5,bottom:5,left:6,right:6}, textColor:[55,65,81] },
@@ -2143,9 +2173,10 @@ window.exportBuchPDF = async function() {
             if(d.section==='body'){
                 if(d.row.index===0&&d.column.index===1) d.cell.styles.textColor=[22,163,74];
                 if(d.row.index===1&&d.column.index===1) d.cell.styles.textColor=[220,38,38];
-                if(d.row.index===2&&d.column.index===1) d.cell.styles.textColor=[75,85,99];
-                if(d.row.index===3){ d.cell.styles.textColor=gKColor; d.cell.styles.fontSize=10; }
-                if(d.row.index===3&&d.column.index===0){ d.cell.styles.fontStyle='bold'; d.cell.styles.textColor=[17,24,39]; }
+                if(d.row.index===2){ d.cell.styles.textColor=gKColor; d.cell.styles.fontSize=10; }
+                if(d.row.index===2&&d.column.index===0){ d.cell.styles.fontStyle='bold'; d.cell.styles.textColor=[17,24,39]; }
+                if(d.row.index===3) d.cell.styles.textColor=[107,114,128];
+                if(d.row.index===3&&d.column.index===0) d.cell.styles.fontStyle='italic';
             }
         }
     });
@@ -2166,8 +2197,8 @@ window.exportBuchPDF = async function() {
             ['Geschäftsjahr',                                         String(year)],
             ['Einnahmen (Verkäufe)',                                  fmtChf(totalEin)],
             ['Ausgaben (Einkäufe)',                                   fmtChf(totalAus)],
-            ['+ Lagerbestand Ende 31.12. (EK)',                       fmtChf(lagerWert)],
             ['Persönlicher Jahresgewinn',                             `${gKSign} ${fmtChf(gewinnKorrigiert)}`],
+            ['Lagerbestand Ende 31.12.',                              fmtChf(lagerWert)],
         ],
         theme:'plain',
         bodyStyles: { fontSize:9, cellPadding:{top:5,bottom:5,left:6,right:6}, textColor:[55,65,81] },
@@ -2178,9 +2209,10 @@ window.exportBuchPDF = async function() {
             if(d.section==='body'){
                 if(d.row.index===3&&d.column.index===1) d.cell.styles.textColor=[22,163,74];
                 if(d.row.index===4&&d.column.index===1) d.cell.styles.textColor=[220,38,38];
-                if(d.row.index===5&&d.column.index===1) d.cell.styles.textColor=[75,85,99];
-                if(d.row.index===6){ d.cell.styles.textColor=gKColor; d.cell.styles.fontSize=10; }
-                if(d.row.index===6&&d.column.index===0){ d.cell.styles.fontStyle='bold'; d.cell.styles.textColor=[17,24,39]; }
+                if(d.row.index===5){ d.cell.styles.textColor=gKColor; d.cell.styles.fontSize=10; }
+                if(d.row.index===5&&d.column.index===0){ d.cell.styles.fontStyle='bold'; d.cell.styles.textColor=[17,24,39]; }
+                if(d.row.index===6) d.cell.styles.textColor=[107,114,128];
+                if(d.row.index===6&&d.column.index===0) d.cell.styles.fontStyle='italic';
             }
         }
     });
