@@ -537,6 +537,11 @@
         .buch-table-wrap tbody tr { border-bottom: 0.5px solid rgba(255,255,255,0.05); transition: background 0.15s; }
         .buch-table-wrap tbody tr:last-child { border-bottom: none; }
         .buch-table-wrap tbody tr:hover { background: rgba(255,255,255,0.03); }
+        /* Gruppen-Schattierung: zusammengehörende Zeilen (Wareneinsatz + Verkauf) abwechselnd grau */
+        .buch-table-wrap tbody tr.grp-shade { background: rgba(255,255,255,0.045); }
+        .buch-table-wrap tbody tr.grp-shade:hover { background: rgba(255,255,255,0.075); }
+        /* erste Zeile einer Gruppe: dünne Trennlinie nach oben, damit Paare optisch klar getrennt sind */
+        .buch-table-wrap tbody tr.grp-start { border-top: 0.5px solid rgba(255,255,255,0.09); }
         .buch-table-wrap tbody tr:hover .action-btns { opacity: 1; }
         .buch-table-wrap td { padding: 11px 14px; font-size: 0.845rem; vertical-align: middle; }
 
@@ -1135,7 +1140,7 @@
         </div>
         <div class="form-group"><label class="form-label">Verkaufte Menge *</label><input class="form-input" id="sellMenge" type="number" min="1" placeholder="1"></div>
         <div class="form-group"><label class="form-label">Verkaufspreis / Stück (CHF)</label><input class="form-input" id="sellVKPreis" type="number" min="0" step="0.01" placeholder="0.00"></div>
-        <div class="form-group"><label class="form-label">Bestellnummer *</label><input class="form-input" id="sellBestellnummer" type="text" placeholder="z.B. PL1000"></div>
+        <div class="form-group"><label class="form-label">Bestellnummer *</label><input class="form-input" id="sellBestellnummer" type="text" placeholder="z.B. #PL1000"></div>
         <div id="sellWarning" style="font-size:0.78rem;color:#fca5a5;margin-top:-0.5rem;margin-bottom:0.8rem;display:none;">⚠️ Menge überschreitet den Bestand!</div>
         <div class="modal-actions">
             <button class="btn btn-secondary" onclick="closeSellModal()">Abbrechen</button>
@@ -1899,18 +1904,34 @@ async function renderBuchTable(){
         if(search&&!e.beschreibung.toLowerCase().includes(search)&&!(e.notiz||'').toLowerCase().includes(search)&&!(e.bestellnummer||'').toLowerCase().includes(search))return false;
         return true;
     });
-    filtered.sort((a,b)=>b.datum.localeCompare(a.datum));
+    // Zeitstempel eines Verkaufs-Paars aus der ID ziehen (sell_ek_<ts> / sell_vk_<ts>)
+    const saleTs=e=>{const m=(e.id||'').match(/^sell_(?:ek|vk)_(.+)$/);return m?m[1]:null;};
+    // Gruppen-Key: gleiches Paar = gleicher Key, manuelle Buchungen = eigener Key
+    const groupKey=e=>{const t=saleTs(e);return t?'sale_'+t:'one_'+e.id;};
+
+    filtered.sort((a,b)=>{
+        if(a.datum!==b.datum) return b.datum.localeCompare(a.datum);       // neuestes Datum zuerst
+        const ka=saleTs(a)||a.id, kb=saleTs(b)||b.id;
+        if(ka!==kb) return String(kb).localeCompare(String(ka));           // Gruppen zusammenhalten, neuere zuerst
+        if(a.typ!==b.typ) return a.typ==='einnahme'?-1:1;                  // im Paar: Verkauf über Wareneinsatz
+        return 0;
+    });
 
     const tbody=document.getElementById('buchBody');
     if(filtered.length===0){
         tbody.innerHTML=`<tr><td colspan="9"><div class="empty-state"><div class="empty-icon">🧾</div><p>Keine Buchungen für diesen Filter.</p></div></td></tr>`;
         return;
     }
+    let grpShade=false, prevGroup=null;
     tbody.innerHTML=filtered.map((e,i)=>{
+        const gk=groupKey(e);
+        const isStart=gk!==prevGroup;
+        if(isStart){grpShade=!grpShade;prevGroup=gk;}                       // bei neuer Gruppe Schattierung umschalten
+        const rowCls=((grpShade?'grp-shade':'')+(isStart?' grp-start':'')).trim();
         const df=new Date(e.datum).toLocaleDateString('de-CH');
         const typ=e.typ==='einnahme'?'<span class="type-ein">+ Einnahme</span>':'<span class="type-aus">− Ausgabe</span>';
         const betragColor=e.typ==='einnahme'?'#4ade80':'#f87171';
-        return `<tr>
+        return `<tr class="${rowCls}">
             <td style="color:rgba(255,255,255,0.22);font-size:0.72rem">${i+1}</td>
             <td style="font-size:0.8rem;color:rgba(255,255,255,0.5)">${df}</td>
             <td style="font-weight:600">${escapeHtml(e.beschreibung)}</td>
