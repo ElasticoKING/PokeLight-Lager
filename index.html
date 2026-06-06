@@ -544,6 +544,9 @@
         .type-ein { background: rgba(22,163,74,0.14); color: #4ade80; padding: 2px 9px; border-radius: 20px; font-size: 0.68rem; font-weight: 600; }
         .type-aus { background: rgba(220,38,38,0.14); color: #f87171; padding: 2px 9px; border-radius: 20px; font-size: 0.68rem; font-weight: 600; }
 
+        /* Bestellnummer-Tag */
+        .order-tag { display:inline-block; font-size:0.68rem; font-weight:600; color:#93c5fd; background:rgba(37,117,252,0.12); border:0.5px solid rgba(37,117,252,0.28); padding:1px 7px; border-radius:6px; margin-top:3px; }
+
         /* Jahresabschluss Box */
         .jahres-box {
             background: linear-gradient(135deg, rgba(106,17,255,0.08), rgba(37,117,252,0.05));
@@ -610,7 +613,7 @@
         /* ==================== SOLD MODAL ==================== */
         .sold-modal-overlay { position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.88); backdrop-filter: blur(8px); z-index: 4500; display: none; justify-content: center; align-items: center; }
         .sold-modal-overlay.active { display: flex; }
-        .sold-modal { background: #0d0d1e; border: 1px solid rgba(52,211,153,0.22); border-radius: 1.8rem; padding: 2rem; width: 95%; max-width: 860px; max-height: 88vh; overflow-y: auto; animation: fadeInUp 0.3s ease; position: relative; }
+        .sold-modal { background: #0d0d1e; border: 1px solid rgba(52,211,153,0.22); border-radius: 1.8rem; padding: 2rem; width: 95%; max-width: 920px; max-height: 88vh; overflow-y: auto; animation: fadeInUp 0.3s ease; position: relative; }
         .sold-modal-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.4rem; flex-wrap: wrap; gap: 0.8rem; }
         .sold-modal-title { font-size: 1.25rem; font-weight: 700; background: linear-gradient(135deg, #fff, #6ee7b7); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
         .sold-stats-row { display: grid; grid-template-columns: repeat(3,1fr); gap: 0.7rem; margin-bottom: 1.4rem; }
@@ -618,7 +621,7 @@
         .sold-stat-label { font-size: 0.66rem; letter-spacing: 1.4px; text-transform: uppercase; color: rgba(255,255,255,0.32); }
         .sold-stat-value { font-size: 1.25rem; font-weight: 700; margin-top: 0.2rem; }
         .sold-table-wrap { background: #0a0a18; border: 0.5px solid rgba(255,255,255,0.07); border-radius: 1rem; overflow: hidden; overflow-x: auto; }
-        .sold-table-wrap table { min-width: 500px; }
+        .sold-table-wrap table { min-width: 600px; }
         .sold-table-wrap thead th { background: rgba(255,255,255,0.02); padding: 9px 13px; font-size: 0.64rem; letter-spacing: 1.4px; text-transform: uppercase; color: rgba(255,255,255,0.32); border-bottom: 0.5px solid rgba(255,255,255,0.06); text-align: left; }
         .sold-table-wrap tbody tr { border-bottom: 0.5px solid rgba(255,255,255,0.05); }
         .sold-table-wrap tbody tr:last-child { border-bottom: none; }
@@ -787,7 +790,7 @@
             <button onclick="resetPassword()" style="background:none;border:none;color:rgba(255,255,255,0.35);cursor:pointer;font-size:0.8rem;margin-top:0.8rem;text-decoration:underline;">🔑 Passwort vergessen?</button>
         </div>
         <div class="error-msg" id="errorMsg"></div>
-        <div style="margin-top:1.2rem;font-size:0.72rem;color:rgba(255,255,255,0.2);letter-spacing:1px;">Version 1.6</div>
+        <div style="margin-top:1.2rem;font-size:0.72rem;color:rgba(255,255,255,0.2);letter-spacing:1px;">Version 1.7</div>
     </div>
 </div>
 
@@ -991,7 +994,7 @@
 
                 <!-- Filter + Tabelle -->
                 <div class="buch-tools">
-                    <input class="search-box" id="buchSearch" type="text" placeholder="🔍 Buchung suchen..." style="max-width:260px;" oninput="renderBuchTable()">
+                    <input class="search-box" id="buchSearch" type="text" placeholder="🔍 Buchung / Bestell-Nr. suchen..." style="max-width:280px;" oninput="renderBuchTable()">
                     <select class="buch-filter-select" id="buchFilterTyp" onchange="renderBuchTable()">
                         <option value="">Alle Typen</option>
                         <option value="einnahme">Einnahmen</option>
@@ -1016,7 +1019,7 @@
                     <table>
                         <thead>
                             <tr>
-                                <th>#</th><th>Datum</th><th>Beschreibung</th><th>Kategorie</th>
+                                <th>#</th><th>Datum</th><th>Beschreibung</th><th>Bestell-Nr.</th><th>Kategorie</th>
                                 <th>Typ</th><th style="text-align:right">Betrag (CHF)</th><th>Notiz</th><th></th>
                             </tr>
                         </thead>
@@ -1067,6 +1070,7 @@
             <div class="form-group"><label class="form-label">Betrag (CHF) *</label><input class="form-input" id="bBetrag" type="number" min="0" step="0.01" placeholder="0.00"></div>
         </div>
         <div class="form-group"><label class="form-label">Beschreibung *</label><input class="form-input" id="bBeschreibung" type="text" placeholder="z.B. Verkauf Display"></div>
+        <div class="form-group"><label class="form-label">Bestellnummer</label><input class="form-input" id="bBestellnummer" type="text" placeholder="z.B. #PL1000 (optional)"></div>
         <div class="form-row">
             <div class="form-group"><label class="form-label">Kategorie</label>
                 <select class="form-select" id="bKategorie">
@@ -1113,7 +1117,7 @@
         </div>
         <div class="sold-table-wrap">
             <table>
-                <thead><tr><th>#</th><th>Produkt</th><th>Kategorie</th><th style="text-align:center">Menge</th><th style="text-align:right">EK/Stk</th><th style="text-align:right">VK/Stk</th><th style="text-align:right">Gewinn</th><th>Datum</th><th></th></tr></thead>
+                <thead><tr><th>#</th><th>Produkt</th><th>Bestell-Nr.</th><th>Kategorie</th><th style="text-align:center">Menge</th><th style="text-align:right">EK/Stk</th><th style="text-align:right">VK/Stk</th><th style="text-align:right">Gewinn</th><th>Datum</th><th></th></tr></thead>
                 <tbody id="soldBody"></tbody>
             </table>
         </div>
@@ -1131,6 +1135,7 @@
         </div>
         <div class="form-group"><label class="form-label">Verkaufte Menge *</label><input class="form-input" id="sellMenge" type="number" min="1" placeholder="1"></div>
         <div class="form-group"><label class="form-label">Verkaufspreis / Stück (CHF)</label><input class="form-input" id="sellVKPreis" type="number" min="0" step="0.01" placeholder="0.00"></div>
+        <div class="form-group"><label class="form-label">Bestellnummer *</label><input class="form-input" id="sellBestellnummer" type="text" placeholder="z.B. PL1000"></div>
         <div id="sellWarning" style="font-size:0.78rem;color:#fca5a5;margin-top:-0.5rem;margin-bottom:0.8rem;display:none;">⚠️ Menge überschreitet den Bestand!</div>
         <div class="modal-actions">
             <button class="btn btn-secondary" onclick="closeSellModal()">Abbrechen</button>
@@ -1566,7 +1571,7 @@ window.openSellModal=async function(id){
     sellingId=id; document.getElementById('sellProductName').textContent=p.name;
     document.getElementById('sellProductStock').textContent=`Bestand: ${p.menge} Stück`;
     document.getElementById('sellMenge').value='1'; document.getElementById('sellMenge').max=p.menge;
-    document.getElementById('sellVKPreis').value=''; document.getElementById('sellWarning').style.display='none';
+    document.getElementById('sellVKPreis').value=''; document.getElementById('sellBestellnummer').value=''; document.getElementById('sellWarning').style.display='none';
     document.getElementById('sellModalOverlay').classList.add('active');
     setTimeout(()=>document.getElementById('sellMenge').focus(),100);
 };
@@ -1578,11 +1583,13 @@ window.confirmSell=async function(){
     const p=data[idx];
     if(isNaN(menge)||menge<=0){showToast('⚠️ Ungültige Menge!');return;}
     if(menge>p.menge){document.getElementById('sellWarning').style.display='block';return;}
+    const bestellnummer=document.getElementById('sellBestellnummer').value.trim();
+    if(!bestellnummer){showToast('⚠️ Bestellnummer fehlt!');return;}
     const history=await loadSoldHistory();
     const vkPreis=parseFloat(document.getElementById('sellVKPreis').value)||0;
     const heute=new Date().toLocaleDateString('de-CH');
     const heutISO=new Date().toISOString().split('T')[0];
-    history.unshift({id:Date.now().toString(),name:p.name,kategorie:p.kategorie,menge,preis:p.preis,vkPreis,datum:heute});
+    history.unshift({id:Date.now().toString(),name:p.name,kategorie:p.kategorie,menge,preis:p.preis,vkPreis,bestellnummer,datum:heute});
     await saveSoldHistory(history);
 
     // VK → Einnahme + EK → Ausgabe beim Verkauf → echter Gewinn sichtbar
@@ -1597,6 +1604,7 @@ window.confirmSell=async function(){
         kategorie: p.kategorie,
         typ:'ausgabe',
         betrag: Number(p.preis)*menge,
+        bestellnummer,
         notiz:`EK CHF ${Number(p.preis).toFixed(2)}/Stk`
     });
 
@@ -1609,6 +1617,7 @@ window.confirmSell=async function(){
             kategorie: p.kategorie,
             typ:'einnahme',
             betrag: vkPreis*menge,
+            bestellnummer,
             notiz:`VK CHF ${vkPreis.toFixed(2)}/Stk`
         });
     }
@@ -1638,7 +1647,7 @@ window.openSoldModal=async function(){
     document.getElementById('soldStatWert').textContent=(totalG>0?'+':'')+'CHF '+chf(totalG);
     document.getElementById('soldModalSub').textContent=`${USERS[currentUser]?.name||'Gast'} · ${history.length} Einträge`;
     const tbody=document.getElementById('soldBody');
-    if(history.length===0){tbody.innerHTML=`<tr><td colspan="9"><div class="empty-state" style="padding:2rem"><div class="empty-icon">🏷️</div><p>Noch keine Verkäufe.</p></div></td></tr>`;}
+    if(history.length===0){tbody.innerHTML=`<tr><td colspan="10"><div class="empty-state" style="padding:2rem"><div class="empty-icon">🏷️</div><p>Noch keine Verkäufe.</p></div></td></tr>`;}
     else{
         tbody.innerHTML=history.map((e,i)=>{
             const g=(Number(e.vkPreis||0)-Number(e.preis))*Number(e.menge);
@@ -1647,6 +1656,7 @@ window.openSoldModal=async function(){
             return `<tr>
                 <td style="color:rgba(255,255,255,0.22);font-size:0.72rem">${i+1}</td>
                 <td style="font-weight:600">${escapeHtml(e.name)}</td>
+                <td>${e.bestellnummer?`<span class="order-tag">🧾 ${escapeHtml(e.bestellnummer)}</span>`:'<span style="color:rgba(255,255,255,0.25)">—</span>'}</td>
                 <td><span class="badge ${b}">${escapeHtml(e.kategorie)}</span></td>
                 <td style="text-align:center"><span class="qty-badge">${e.menge}</span></td>
                 <td style="text-align:right;color:rgba(255,255,255,0.5)">CHF ${Number(e.preis).toFixed(2)}</td>
@@ -1886,14 +1896,14 @@ async function renderBuchTable(){
         if(typF&&e.typ!==typF)return false;
         if(monatF&&new Date(e.datum).getMonth()+1!==monatF)return false;
         if(katF&&e.kategorie!==katF)return false;
-        if(search&&!e.beschreibung.toLowerCase().includes(search)&&!(e.notiz||'').toLowerCase().includes(search))return false;
+        if(search&&!e.beschreibung.toLowerCase().includes(search)&&!(e.notiz||'').toLowerCase().includes(search)&&!(e.bestellnummer||'').toLowerCase().includes(search))return false;
         return true;
     });
     filtered.sort((a,b)=>b.datum.localeCompare(a.datum));
 
     const tbody=document.getElementById('buchBody');
     if(filtered.length===0){
-        tbody.innerHTML=`<tr><td colspan="8"><div class="empty-state"><div class="empty-icon">🧾</div><p>Keine Buchungen für diesen Filter.</p></div></td></tr>`;
+        tbody.innerHTML=`<tr><td colspan="9"><div class="empty-state"><div class="empty-icon">🧾</div><p>Keine Buchungen für diesen Filter.</p></div></td></tr>`;
         return;
     }
     tbody.innerHTML=filtered.map((e,i)=>{
@@ -1904,6 +1914,7 @@ async function renderBuchTable(){
             <td style="color:rgba(255,255,255,0.22);font-size:0.72rem">${i+1}</td>
             <td style="font-size:0.8rem;color:rgba(255,255,255,0.5)">${df}</td>
             <td style="font-weight:600">${escapeHtml(e.beschreibung)}</td>
+            <td>${e.bestellnummer?`<span class="order-tag">🧾 ${escapeHtml(e.bestellnummer)}</span>`:'<span style="color:rgba(255,255,255,0.25)">—</span>'}</td>
             <td><span class="badge badge-andere">${escapeHtml(e.kategorie)}</span></td>
             <td>${typ}</td>
             <td style="text-align:right;font-weight:700;color:${betragColor};font-size:0.9rem">${e.typ==='einnahme'?'+':'-'} CHF ${chf(e.betrag)}</td>
@@ -1924,6 +1935,7 @@ window.openBuchModal=function(typ){
     document.getElementById('bDatum').value=new Date().toISOString().split('T')[0];
     document.getElementById('bBetrag').value='';
     document.getElementById('bBeschreibung').value='';
+    document.getElementById('bBestellnummer').value='';
     document.getElementById('bKategorie').value=isEin?'Verkauf':'Einkauf';
     document.getElementById('bTyp').value=typ;
     document.getElementById('bNotiz').value='';
@@ -1939,6 +1951,7 @@ window.openBuchEditModal=async function(id){
     document.getElementById('bDatum').value=e.datum;
     document.getElementById('bBetrag').value=e.betrag;
     document.getElementById('bBeschreibung').value=e.beschreibung;
+    document.getElementById('bBestellnummer').value=e.bestellnummer||'';
     document.getElementById('bKategorie').value=e.kategorie;
     document.getElementById('bTyp').value=e.typ;
     document.getElementById('bNotiz').value=e.notiz||'';
@@ -1951,15 +1964,16 @@ window.saveBuchEntry=async function(){
     const datum=document.getElementById('bDatum').value; if(!datum){showToast('⚠️ Datum fehlt!');return;}
     const betrag=parseFloat(document.getElementById('bBetrag').value); if(isNaN(betrag)||betrag<=0){showToast('⚠️ Ungültiger Betrag!');return;}
     const beschreibung=document.getElementById('bBeschreibung').value.trim(); if(!beschreibung){showToast('⚠️ Beschreibung fehlt!');return;}
+    const bestellnummer=document.getElementById('bBestellnummer').value.trim();
     const kategorie=document.getElementById('bKategorie').value;
     const typ=document.getElementById('bTyp').value;
     const notiz=document.getElementById('bNotiz').value.trim();
     const all=await loadBuchData();
     if(editingBuchId){
         const idx=all.findIndex(x=>x.id===editingBuchId);
-        if(idx!==-1){all[idx]={...all[idx],datum,betrag,beschreibung,kategorie,typ,notiz};showToast('✅ Buchung aktualisiert!');}
+        if(idx!==-1){all[idx]={...all[idx],datum,betrag,beschreibung,bestellnummer,kategorie,typ,notiz};showToast('✅ Buchung aktualisiert!');}
     }else{
-        all.push({id:Date.now().toString(),datum,betrag,beschreibung,kategorie,typ,notiz});
+        all.push({id:Date.now().toString(),datum,betrag,beschreibung,bestellnummer,kategorie,typ,notiz});
         showToast(typ==='einnahme'?'✅ Einnahme erfasst!':'✅ Ausgabe erfasst!');
     }
     await saveBuchData(all); closeBuchModal(); await renderBuchhaltung();
@@ -1975,8 +1989,8 @@ window.exportBuchCSV=async function(){
     const all=await loadBuchData(); const year=parseInt(document.getElementById('buchYear').value)||new Date().getFullYear();
     const data=all.filter(e=>new Date(e.datum).getFullYear()===year);
     if(data.length===0){showToast('⚠️ Keine Buchungen!');return;}
-    const h=['Datum','Beschreibung','Kategorie','Typ','Betrag (CHF)','Notiz'];
-    const rows=data.map(e=>[e.datum,`"${(e.beschreibung||'').replace(/"/g,'""')}"`,e.kategorie,e.typ,Number(e.betrag).toFixed(2),`"${(e.notiz||'').replace(/"/g,'""')}"`]);
+    const h=['Datum','Beschreibung','Bestellnummer','Kategorie','Typ','Betrag (CHF)','Notiz'];
+    const rows=data.map(e=>[e.datum,`"${(e.beschreibung||'').replace(/"/g,'""')}"`,`"${(e.bestellnummer||'').replace(/"/g,'""')}"`,e.kategorie,e.typ,Number(e.betrag).toFixed(2),`"${(e.notiz||'').replace(/"/g,'""')}"`]);
     const csv=[h,...rows].map(r=>r.join(';')).join('\n');
     const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'});
     const url=URL.createObjectURL(blob); const a=document.createElement('a');
@@ -2014,6 +2028,11 @@ window.exportBuchPDF = async function() {
     const fmtDate = d => { try { return new Date(d).toLocaleDateString('de-CH'); } catch { return d||''; }};
     const fmtChf  = n => 'CHF ' + Math.abs(Number(n)).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g,"'");
     const MONATE  = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
+
+    // Beschreibung inkl. Bestellnummer + Notiz
+    const beschrZelle = e => e.beschreibung
+        + (e.bestellnummer ? '\nBestell-Nr. ' + e.bestellnummer : '')
+        + (e.notiz ? '\n' + e.notiz : '');
 
     // ---- Shared table style helper ----
     const baseTable = (head, body, foot, cols, headColor, amtCol) => ({
@@ -2091,7 +2110,7 @@ window.exportBuchPDF = async function() {
     if (einnahmen.length > 0) {
         doc.autoTable({ ...baseTable(
             [['Datum','Beschreibung','Kategorie','Betrag']],
-            einnahmen.map(e=>[fmtDate(e.datum), e.beschreibung+(e.notiz?'\n'+e.notiz:''), e.kategorie, '+ '+Number(e.betrag).toFixed(2)]),
+            einnahmen.map(e=>[fmtDate(e.datum), beschrZelle(e), e.kategorie, '+ '+Number(e.betrag).toFixed(2)]),
             [['','','Total', fmtChf(totalEin)]],
             { 0:{cellWidth:22}, 1:{cellWidth:98}, 2:{cellWidth:28}, 3:{cellWidth:34,halign:'right',textColor:[22,163,74],fontStyle:'bold'} },
             [240,253,244], 3
@@ -2108,7 +2127,7 @@ window.exportBuchPDF = async function() {
     if (ausgaben.length > 0) {
         doc.autoTable({ ...baseTable(
             [['Datum','Beschreibung','Kategorie','Betrag']],
-            ausgaben.map(e=>[fmtDate(e.datum), e.beschreibung+(e.notiz?'\n'+e.notiz:''), e.kategorie, '- '+Number(e.betrag).toFixed(2)]),
+            ausgaben.map(e=>[fmtDate(e.datum), beschrZelle(e), e.kategorie, '- '+Number(e.betrag).toFixed(2)]),
             [['','','Total', fmtChf(totalAus)]],
             { 0:{cellWidth:22}, 1:{cellWidth:98}, 2:{cellWidth:28}, 3:{cellWidth:34,halign:'right',textColor:[220,38,38],fontStyle:'bold'} },
             [255,241,242], 3
