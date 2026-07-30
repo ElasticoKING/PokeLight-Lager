@@ -848,10 +848,15 @@
             <span class="sidebar-text">Buchhaltung</span>
         </div>
 
+        <div class="sidebar-item" id="nav-aufgaben" onclick="switchPage('aufgaben')">
+            <span class="sidebar-icon">✅</span>
+            <span class="sidebar-text">Aufgaben</span>
+            <span class="sidebar-badge green">Neu</span>
+        </div>
+
         <div class="sidebar-item" id="nav-dokumente" onclick="switchPage('dokumente')">
             <span class="sidebar-icon">📄</span>
             <span class="sidebar-text">Dokumente</span>
-            <span class="sidebar-badge green">Neu</span>
         </div>
 
         <input type="file" id="csvImportInput" accept=".csv" style="display:none" onchange="importCSV(event)">
@@ -1095,6 +1100,60 @@
             </div>
         </div>
 
+        <!-- ===== AUFGABEN PAGE ===== -->
+        <div class="page" id="page-aufgaben">
+            <div class="content-area">
+                <div class="inv-header">
+                    <div>
+                        <div class="inv-title">✅ Aufgaben</div>
+                        <div class="inv-subtitle">Gemeinsame To-Do-Liste für Amine & Simon — auf dem Server gespeichert</div>
+                    </div>
+                    <div class="inv-actions">
+                        <button class="btn btn-primary" onclick="openTaskModal()">+ Aufgabe hinzufügen</button>
+                    </div>
+                </div>
+
+                <div class="stats-grid" style="margin-bottom:1.5rem;">
+                    <div class="stat-card purple">
+                        <div class="stat-icon">📋</div>
+                        <div class="stat-label">Offen</div>
+                        <div class="stat-value" id="taskOpenCount">0</div>
+                    </div>
+                    <div class="stat-card green">
+                        <div class="stat-icon">✅</div>
+                        <div class="stat-label">Erledigt</div>
+                        <div class="stat-value" id="taskDoneCount">0</div>
+                    </div>
+                </div>
+
+                <div class="toolbar">
+                    <input class="search-box" id="taskSearch" type="text" placeholder="🔍 Aufgabe suchen..." oninput="renderTasks()">
+                    <select class="filter-select" id="taskFilterWer" onchange="renderTasks()">
+                        <option value="">Alle</option>
+                        <option value="Amine">Amine</option>
+                        <option value="Simon">Simon</option>
+                        <option value="Beide">Beide</option>
+                    </select>
+                    <select class="filter-select" id="taskFilterStatus" onchange="renderTasks()">
+                        <option value="">Alle Status</option>
+                        <option value="offen">Offen</option>
+                        <option value="erledigt">Erledigt</option>
+                    </select>
+                </div>
+
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th></th><th>Aufgabe</th><th>Zugewiesen</th><th>Priorität</th><th>Fällig</th><th>Erstellt</th><th>Aktionen</th>
+                            </tr>
+                        </thead>
+                        <tbody id="taskBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
     </div><!-- end main-wrapper -->
 </div><!-- end app -->
 
@@ -1159,6 +1218,37 @@
         <div class="modal-actions">
             <button class="btn btn-secondary" onclick="closeBuchModal()">Abbrechen</button>
             <button class="btn btn-primary" id="buchSaveBtn" onclick="saveBuchEntry()">Speichern</button>
+        </div>
+    </div>
+</div>
+
+<!-- AUFGABE MODAL -->
+<div class="modal-overlay" id="taskModalOverlay">
+    <div class="modal">
+        <button class="modal-close" onclick="closeTaskModal()">✕</button>
+        <h2 id="taskModalTitle">Aufgabe hinzufügen</h2>
+        <div class="form-group"><label class="form-label">Aufgabe *</label><input class="form-input" id="tText" type="text" placeholder="z.B. Bestellung XY versenden"></div>
+        <div class="form-row">
+            <div class="form-group"><label class="form-label">Zugewiesen an</label>
+                <select class="form-select" id="tWer">
+                    <option value="Beide">Beide</option>
+                    <option value="Amine">Amine</option>
+                    <option value="Simon">Simon</option>
+                </select>
+            </div>
+            <div class="form-group"><label class="form-label">Priorität</label>
+                <select class="form-select" id="tPrioritaet">
+                    <option value="Normal">Normal</option>
+                    <option value="Hoch">Hoch</option>
+                    <option value="Niedrig">Niedrig</option>
+                </select>
+            </div>
+        </div>
+        <div class="form-group"><label class="form-label">Fällig am (optional)</label><input class="form-input" id="tFaellig" type="date"></div>
+        <div class="form-group"><label class="form-label">Notiz</label><textarea class="form-textarea" id="tNotiz" placeholder="Optional..."></textarea></div>
+        <div class="modal-actions">
+            <button class="btn btn-secondary" onclick="closeTaskModal()">Abbrechen</button>
+            <button class="btn btn-primary" onclick="saveTask()">Speichern</button>
         </div>
     </div>
 </div>
@@ -1364,6 +1454,7 @@ window.switchPage = function(page) {
     document.getElementById('page-'+page).classList.add('active');
     document.getElementById('nav-'+page).classList.add('active');
     if(page==='buchhaltung') renderBuchhaltung();
+    if(page==='aufgaben') renderTasks();
     if(page==='dokumente') renderDocuments();
     closeSidebar();
 };
@@ -1525,6 +1616,17 @@ async function loadBuchData(){
 async function saveBuchData(data){
     if(currentUser==='gast'){window._gastBuch=data;return;}
     try{const r=doc(db,'users',getKey());const s=await getDoc(r);const ex=s.exists()?s.data():{};await setDoc(r,{...ex,buchhaltung:data});}catch(e){console.error(e);}
+}
+
+// Aufgaben liegen NICHT pro User getrennt, sondern in einem gemeinsamen Dokument,
+// damit Amine & Simon dieselbe Liste sehen und bearbeiten.
+async function loadTasks(){
+    if(currentUser==='gast')return window._gastTasks||[];
+    try{const r=doc(db,'shared','aufgaben');const s=await getDoc(r);return s.exists()?s.data().tasks||[]:[]}catch{return[];}
+}
+async function saveTasks(data){
+    if(currentUser==='gast'){window._gastTasks=data;return;}
+    try{const r=doc(db,'shared','aufgaben');await setDoc(r,{tasks:data});}catch(e){console.error(e);}
 }
 
 // ==================== BACKUP ====================
@@ -2445,6 +2547,118 @@ window.exportBuchPDF = async function() {
     showToast(`✅ PDF gespeichert!`);
 };
 
+// ==================== AUFGABEN ====================
+let editingTaskId=null;
+const PRIO_COLOR={'Hoch':'#f87171','Normal':'rgba(255,255,255,0.55)','Niedrig':'#6ee7b7'};
+
+window.openTaskModal=function(){
+    editingTaskId=null;
+    document.getElementById('taskModalTitle').textContent='➕ Aufgabe hinzufügen';
+    document.getElementById('tText').value='';
+    document.getElementById('tWer').value='Beide';
+    document.getElementById('tPrioritaet').value='Normal';
+    document.getElementById('tFaellig').value='';
+    document.getElementById('tNotiz').value='';
+    document.getElementById('taskModalOverlay').classList.add('active');
+    setTimeout(()=>document.getElementById('tText').focus(),100);
+};
+window.openTaskEditModal=async function(id){
+    const tasks=await loadTasks(); const t=tasks.find(x=>x.id===id); if(!t)return;
+    editingTaskId=id;
+    document.getElementById('taskModalTitle').textContent='✏️ Aufgabe bearbeiten';
+    document.getElementById('tText').value=t.text;
+    document.getElementById('tWer').value=t.wer||'Beide';
+    document.getElementById('tPrioritaet').value=t.prioritaet||'Normal';
+    document.getElementById('tFaellig').value=t.faellig||'';
+    document.getElementById('tNotiz').value=t.notiz||'';
+    document.getElementById('taskModalOverlay').classList.add('active');
+};
+window.closeTaskModal=function(){document.getElementById('taskModalOverlay').classList.remove('active');editingTaskId=null;};
+
+window.saveTask=async function(){
+    const text=document.getElementById('tText').value.trim();
+    if(!text){showToast('⚠️ Aufgabentext fehlt!');return;}
+    const wer=document.getElementById('tWer').value;
+    const prioritaet=document.getElementById('tPrioritaet').value;
+    const faellig=document.getElementById('tFaellig').value;
+    const notiz=document.getElementById('tNotiz').value.trim();
+    const tasks=await loadTasks();
+    if(editingTaskId){
+        const idx=tasks.findIndex(x=>x.id===editingTaskId);
+        if(idx!==-1){tasks[idx]={...tasks[idx],text,wer,prioritaet,faellig,notiz};showToast('✅ Aufgabe aktualisiert!');}
+    }else{
+        tasks.unshift({id:Date.now().toString(),text,wer,prioritaet,faellig,notiz,done:false,createdAt:new Date().toISOString(),createdBy:USERS[currentUser]?.name||'Gast'});
+        showToast('✅ Aufgabe hinzugefügt!');
+    }
+    await saveTasks(tasks); closeTaskModal(); await renderTasks();
+};
+
+window.toggleTaskDone=async function(id){
+    const tasks=await loadTasks();
+    const idx=tasks.findIndex(x=>x.id===id); if(idx===-1)return;
+    tasks[idx].done=!tasks[idx].done;
+    tasks[idx].doneAt=tasks[idx].done?new Date().toISOString():null;
+    await saveTasks(tasks); await renderTasks();
+};
+
+window.deleteTask=async function(id){
+    if(!confirm('Aufgabe wirklich löschen?'))return;
+    const tasks=await loadTasks();
+    await saveTasks(tasks.filter(x=>x.id!==id));
+    await renderTasks(); showToast('🗑️ Aufgabe gelöscht');
+};
+
+async function renderTasks(){
+    const tasks=await loadTasks();
+    const search=(document.getElementById('taskSearch')?.value||'').toLowerCase();
+    const werF=document.getElementById('taskFilterWer')?.value||'';
+    const statusF=document.getElementById('taskFilterStatus')?.value||'';
+    let filtered=tasks.filter(t=>{
+        if(search && !t.text.toLowerCase().includes(search) && !(t.notiz||'').toLowerCase().includes(search)) return false;
+        if(werF && t.wer!==werF) return false;
+        if(statusF==='offen' && t.done) return false;
+        if(statusF==='erledigt' && !t.done) return false;
+        return true;
+    });
+    // offene zuerst, dann nach Erstellungsdatum neueste zuerst
+    filtered.sort((a,b)=>{
+        if(a.done!==b.done) return a.done?1:-1;
+        return (b.createdAt||'').localeCompare(a.createdAt||'');
+    });
+
+    const openCount=tasks.filter(t=>!t.done).length;
+    const doneCount=tasks.filter(t=>t.done).length;
+    const oEl=document.getElementById('taskOpenCount'), dEl=document.getElementById('taskDoneCount');
+    if(oEl) oEl.textContent=openCount;
+    if(dEl) dEl.textContent=doneCount;
+
+    const tbody=document.getElementById('taskBody');
+    if(!tbody) return;
+    if(filtered.length===0){
+        tbody.innerHTML=`<tr><td colspan="7"><div class="empty-state"><div class="empty-icon">🗒️</div><p>Keine Aufgaben gefunden.</p></div></td></tr>`;
+        return;
+    }
+    tbody.innerHTML=filtered.map(t=>{
+        const df=t.faellig?new Date(t.faellig).toLocaleDateString('de-CH'):'—';
+        const cf=t.createdAt?new Date(t.createdAt).toLocaleDateString('de-CH'):'—';
+        const prioColor=PRIO_COLOR[t.prioritaet]||PRIO_COLOR['Normal'];
+        const doneStyle=t.done?'opacity:0.42;text-decoration:line-through;':'';
+        return `<tr>
+            <td><input type="checkbox" ${t.done?'checked':''} onclick="toggleTaskDone('${t.id}')" style="width:17px;height:17px;cursor:pointer;accent-color:#22c55e;"></td>
+            <td class="td-name" style="${doneStyle}">${escapeHtml(t.text)}${t.notiz?`<div class="td-date" style="max-width:220px;white-space:normal;">${escapeHtml(t.notiz)}</div>`:''}</td>
+            <td><span class="badge badge-andere">${escapeHtml(t.wer||'Beide')}</span></td>
+            <td style="color:${prioColor};font-weight:600;font-size:0.8rem">${escapeHtml(t.prioritaet||'Normal')}</td>
+            <td class="td-date">${df}</td>
+            <td class="td-date">${cf}</td>
+            <td><div class="action-btns" style="opacity:1;">
+                <button class="icon-btn edit-btn" onclick="openTaskEditModal('${t.id}')" title="Bearbeiten">✏️</button>
+                <button class="icon-btn del-btn" onclick="deleteTask('${t.id}')" title="Löschen">🗑️</button>
+            </div></td>
+        </tr>`;
+    }).join('');
+}
+window.renderTasks=renderTasks;
+
 // ==================== DOKUMENTE (rein lokal, IndexedDB) ====================
 // Dateien verlassen den Browser nie — kein Server-Upload, kein Firebase Storage.
 // Dadurch: nur auf diesem Gerät/Browser sichtbar, nicht zwischen Amine & Simon geteilt,
@@ -2623,6 +2837,7 @@ document.getElementById('sellModalOverlay').addEventListener('click',function(e)
 document.getElementById('emailModalOverlay').addEventListener('click',function(e){if(e.target===this)closeEmailModal();});
 document.getElementById('chartModalOverlay').addEventListener('click',function(e){if(e.target===this)closeChartModal();});
 document.getElementById('buchModalOverlay').addEventListener('click',function(e){if(e.target===this)closeBuchModal();});
+document.getElementById('taskModalOverlay').addEventListener('click',function(e){if(e.target===this)closeTaskModal();});
 document.getElementById('searchBox').addEventListener('input',renderTable);
 document.getElementById('filterKategorie').addEventListener('change',renderTable);
 document.getElementById('filterSortierung').addEventListener('change',renderTable);
