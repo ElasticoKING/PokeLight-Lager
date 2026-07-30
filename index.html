@@ -851,7 +851,7 @@
         <div class="sidebar-item" id="nav-aufgaben" onclick="switchPage('aufgaben')">
             <span class="sidebar-icon">✅</span>
             <span class="sidebar-text">Aufgaben</span>
-            <span class="sidebar-badge green">Neu</span>
+            <span class="sidebar-badge green" id="navAufgabenBadge">0</span>
         </div>
 
         <div class="sidebar-item" id="nav-dokumente" onclick="switchPage('dokumente')">
@@ -1528,6 +1528,7 @@ window.checkPassword=async function(){
                 document.getElementById('sidebarUserName').textContent=user.name;
                 await renderTable();
                 populateBuchYear();
+                await renderTasks();
                 unlockAudio();
                 startMusic();
                 setTimeout(saveChartSnapshot,500);
@@ -1577,6 +1578,7 @@ window.loginAsGast=function(){
             document.getElementById('sidebarUserName').textContent='Gast (Demo)';
             await renderTable();
             populateBuchYear();
+            await renderTasks();
             startMusic();
         },500);
     },1000);
@@ -1622,11 +1624,11 @@ async function saveBuchData(data){
 // damit Amine & Simon dieselbe Liste sehen und bearbeiten.
 async function loadTasks(){
     if(currentUser==='gast')return window._gastTasks||[];
-    try{const r=doc(db,'shared','aufgaben');const s=await getDoc(r);return s.exists()?s.data().tasks||[]:[]}catch{return[];}
+    try{const r=doc(db,'shared','aufgaben');const s=await getDoc(r);return s.exists()?s.data().tasks||[]:[]}catch(e){console.error(e);window._taskError=e;return[];}
 }
 async function saveTasks(data){
-    if(currentUser==='gast'){window._gastTasks=data;return;}
-    try{const r=doc(db,'shared','aufgaben');await setDoc(r,{tasks:data});}catch(e){console.error(e);}
+    if(currentUser==='gast'){window._gastTasks=data;return true;}
+    try{const r=doc(db,'shared','aufgaben');await setDoc(r,{tasks:data});return true;}catch(e){console.error(e);window._taskError=e;return false;}
 }
 
 // ==================== BACKUP ====================
@@ -2583,14 +2585,18 @@ window.saveTask=async function(){
     const faellig=document.getElementById('tFaellig').value;
     const notiz=document.getElementById('tNotiz').value.trim();
     const tasks=await loadTasks();
+    let ok;
     if(editingTaskId){
         const idx=tasks.findIndex(x=>x.id===editingTaskId);
-        if(idx!==-1){tasks[idx]={...tasks[idx],text,wer,prioritaet,faellig,notiz};showToast('✅ Aufgabe aktualisiert!');}
+        if(idx!==-1){tasks[idx]={...tasks[idx],text,wer,prioritaet,faellig,notiz};}
+        ok=await saveTasks(tasks);
+        if(ok) showToast('✅ Aufgabe aktualisiert!'); else showToast('❌ Speichern fehlgeschlagen — Firestore-Regeln prüfen!');
     }else{
         tasks.unshift({id:Date.now().toString(),text,wer,prioritaet,faellig,notiz,done:false,createdAt:new Date().toISOString(),createdBy:USERS[currentUser]?.name||'Gast'});
-        showToast('✅ Aufgabe hinzugefügt!');
+        ok=await saveTasks(tasks);
+        if(ok) showToast('✅ Aufgabe hinzugefügt!'); else showToast('❌ Speichern fehlgeschlagen — Firestore-Regeln prüfen!');
     }
-    await saveTasks(tasks); closeTaskModal(); await renderTasks();
+    closeTaskModal(); await renderTasks();
 };
 
 window.toggleTaskDone=async function(id){
@@ -2609,6 +2615,7 @@ window.deleteTask=async function(id){
 };
 
 async function renderTasks(){
+    window._taskError=null;
     const tasks=await loadTasks();
     const search=(document.getElementById('taskSearch')?.value||'').toLowerCase();
     const werF=document.getElementById('taskFilterWer')?.value||'';
@@ -2631,11 +2638,17 @@ async function renderTasks(){
     const oEl=document.getElementById('taskOpenCount'), dEl=document.getElementById('taskDoneCount');
     if(oEl) oEl.textContent=openCount;
     if(dEl) dEl.textContent=doneCount;
+    const badgeEl=document.getElementById('navAufgabenBadge');
+    if(badgeEl) badgeEl.textContent=openCount;
 
     const tbody=document.getElementById('taskBody');
     if(!tbody) return;
     if(filtered.length===0){
-        tbody.innerHTML=`<tr><td colspan="7"><div class="empty-state"><div class="empty-icon">🗒️</div><p>Keine Aufgaben gefunden.</p></div></td></tr>`;
+        if(window._taskError){
+            tbody.innerHTML=`<tr><td colspan="7"><div class="empty-state"><div class="empty-icon">⚠️</div><p>Aufgaben konnten nicht geladen werden — vermutlich fehlende Firestore-Berechtigung für <code>shared/aufgaben</code>. Details in der Browser-Konsole (F12).</p></div></td></tr>`;
+        }else{
+            tbody.innerHTML=`<tr><td colspan="7"><div class="empty-state"><div class="empty-icon">🗒️</div><p>Keine Aufgaben gefunden.</p></div></td></tr>`;
+        }
         return;
     }
     tbody.innerHTML=filtered.map(t=>{
