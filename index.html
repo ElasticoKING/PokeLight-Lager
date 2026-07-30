@@ -1048,12 +1048,16 @@
                 <div class="inv-header">
                     <div>
                         <div class="inv-title">📄 Dokumente</div>
-                        <div class="inv-subtitle">PDF, JPG & PNG ablegen und verwalten</div>
+                        <div class="inv-subtitle">PDF, JPG & PNG — rein lokal in diesem Browser gespeichert (kein Server-Upload)</div>
                     </div>
                     <div class="inv-actions">
                         <input type="file" id="docUploadInput" accept=".pdf,.jpg,.jpeg,.png" multiple style="display:none" onchange="uploadDocuments(event)">
                         <button class="btn btn-primary" id="docUploadBtn" onclick="document.getElementById('docUploadInput').click()">+ Dokument hochladen</button>
                     </div>
+                </div>
+
+                <div style="background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.25);border-radius:1rem;padding:0.8rem 1.2rem;margin-bottom:1.2rem;font-size:0.8rem;color:rgba(255,255,255,0.55);">
+                    ℹ️ Diese Dokumente liegen nur auf <strong>diesem Gerät/Browser</strong> — nicht in der Cloud, nicht zwischen Amine & Simon geteilt, nicht Teil des Backups. Bei Browser-Daten löschen sind sie weg.
                 </div>
 
                 <div class="stats-grid" style="margin-bottom:1.5rem;">
@@ -1259,7 +1263,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getAuth, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js";
 
 const firebaseConfig = {
     apiKey: "AIzaSyBPECfyYRVTtQ6U7yTBYx0X6_RV2j9UkqQ",
@@ -1273,7 +1276,6 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
-const storage = getStorage(app);
 
 const USERS = {
     'amine': { name: 'Amine', _e: 'ZG91Y2gxM2FtaW5lQGdtYWlsLmNvbQ==', storageKey: 'pokelight_inventur_amine', img: 'https://i.imgur.com/cEU386k.png' },
@@ -1524,14 +1526,6 @@ async function saveBuchData(data){
     if(currentUser==='gast'){window._gastBuch=data;return;}
     try{const r=doc(db,'users',getKey());const s=await getDoc(r);const ex=s.exists()?s.data():{};await setDoc(r,{...ex,buchhaltung:data});}catch(e){console.error(e);}
 }
-async function loadDocuments(){
-    if(currentUser==='gast')return window._gastDocs||[];
-    try{const r=doc(db,'users',getKey());const s=await getDoc(r);return s.exists()?s.data().dokumente||[]:[]}catch{return[];}
-}
-async function saveDocuments(data){
-    if(currentUser==='gast'){window._gastDocs=data;return;}
-    try{const r=doc(db,'users',getKey());const s=await getDoc(r);const ex=s.exists()?s.data():{};await setDoc(r,{...ex,dokumente:data});}catch(e){console.error(e);}
-}
 
 // ==================== BACKUP ====================
 // Lädt ALLE Daten (Inventur + Verkaufshistorie + Chartverlauf + Buchhaltung) direkt
@@ -1548,8 +1542,7 @@ window.downloadFullBackup=async function(){
                 inventur: window._gastInventur||[],
                 soldHistory: window._gastSoldHistory||[],
                 chartHistory: window._gastChartHistory||[],
-                buchhaltung: window._gastBuch||[],
-                dokumente: window._gastDocs||[]
+                buchhaltung: window._gastBuch||[]
             };
         }else{
             const r=doc(db,'users',getKey());
@@ -1559,8 +1552,7 @@ window.downloadFullBackup=async function(){
                 inventur: data.inventur||[],
                 soldHistory: data.soldHistory||[],
                 chartHistory: data.chartHistory||[],
-                buchhaltung: data.buchhaltung||[],
-                dokumente: data.dokumente||[]
+                buchhaltung: data.buchhaltung||[]
             };
         }
         const backup={
@@ -1579,7 +1571,7 @@ window.downloadFullBackup=async function(){
         a.href=url; a.download=`PokeLight_Backup_${userTag}_${stamp}.json`;
         document.body.appendChild(a); a.click(); document.body.removeChild(a);
         URL.revokeObjectURL(url);
-        const anz=payload.inventur.length+payload.soldHistory.length+payload.chartHistory.length+payload.buchhaltung.length+payload.dokumente.length;
+        const anz=payload.inventur.length+payload.soldHistory.length+payload.chartHistory.length+payload.buchhaltung.length;
         showToast(`✅ Backup gespeichert! (${anz} Einträge)`);
     }catch(err){
         console.error(err);
@@ -1605,7 +1597,7 @@ window.restoreFullBackup=function(ev){
         if(!d || typeof d!=='object'){
             showToast('❌ Keine gültigen Backup-Daten gefunden!'); ev.target.value=''; return;
         }
-        const anz=(d.inventur?.length||0)+(d.soldHistory?.length||0)+(d.chartHistory?.length||0)+(d.buchhaltung?.length||0)+(d.dokumente?.length||0);
+        const anz=(d.inventur?.length||0)+(d.soldHistory?.length||0)+(d.chartHistory?.length||0)+(d.buchhaltung?.length||0);
         const ok=confirm(`⚠️ Backup wiederherstellen?\n\nDatei: ${file.name}\nErstellt am: ${backup.erstelltAm?new Date(backup.erstelltAm).toLocaleString('de-CH'):'unbekannt'}\nBenutzer im Backup: ${backup.user||'?'}\nEinträge: ${anz}\n\nACHTUNG: Alle aktuellen Daten (Inventur, Buchhaltung, Verkaufshistorie, Chart) werden vollständig ERSETZT — nicht zusammengeführt!`);
         if(!ok){ev.target.value='';return;}
 
@@ -1617,15 +1609,13 @@ window.restoreFullBackup=function(ev){
                 inventur: d.inventur||[],
                 soldHistory: d.soldHistory||[],
                 chartHistory: d.chartHistory||[],
-                buchhaltung: d.buchhaltung||[],
-                dokumente: d.dokumente||[]
+                buchhaltung: d.buchhaltung||[]
             };
             if(currentUser==='gast'){
                 window._gastInventur=payload.inventur;
                 window._gastSoldHistory=payload.soldHistory;
                 window._gastChartHistory=payload.chartHistory;
                 window._gastBuch=payload.buchhaltung;
-                window._gastDocs=payload.dokumente;
             }else{
                 const r=doc(db,'users',getKey());
                 await setDoc(r,payload); // komplett ersetzen, keine alten Felder behalten
@@ -2455,9 +2445,57 @@ window.exportBuchPDF = async function() {
     showToast(`✅ PDF gespeichert!`);
 };
 
-// ==================== DOKUMENTE ====================
+// ==================== DOKUMENTE (rein lokal, IndexedDB) ====================
+// Dateien verlassen den Browser nie — kein Server-Upload, kein Firebase Storage.
+// Dadurch: nur auf diesem Gerät/Browser sichtbar, nicht zwischen Amine & Simon geteilt,
+// und nicht Teil des Cloud-Backups (nur die lokale Backup-JSON könnte das separat abdecken).
 const DOC_MAX_SIZE = 15 * 1024 * 1024; // 15 MB pro Datei
 const DOC_ALLOWED = ['application/pdf','image/jpeg','image/jpg','image/png'];
+const DOC_DB_NAME = 'PokeLightDocsDB';
+const DOC_STORE = 'files';
+
+function openDocsDB(){
+    return new Promise((resolve,reject)=>{
+        const req=indexedDB.open(DOC_DB_NAME,1);
+        req.onupgradeneeded=()=>{
+            const idb=req.result;
+            if(!idb.objectStoreNames.contains(DOC_STORE)){
+                const store=idb.createObjectStore(DOC_STORE,{keyPath:'id'});
+                store.createIndex('userKey','userKey',{unique:false});
+            }
+        };
+        req.onsuccess=()=>resolve(req.result);
+        req.onerror=()=>reject(req.error);
+    });
+}
+async function idbGetAllDocsForUser(userKey){
+    const idb=await openDocsDB();
+    return new Promise((resolve,reject)=>{
+        const tx=idb.transaction(DOC_STORE,'readonly');
+        const idx=tx.objectStore(DOC_STORE).index('userKey');
+        const req=idx.getAll(IDBKeyRange.only(userKey));
+        req.onsuccess=()=>resolve(req.result||[]);
+        req.onerror=()=>reject(req.error);
+    });
+}
+async function idbPutDoc(record){
+    const idb=await openDocsDB();
+    return new Promise((resolve,reject)=>{
+        const tx=idb.transaction(DOC_STORE,'readwrite');
+        tx.objectStore(DOC_STORE).put(record);
+        tx.oncomplete=()=>resolve();
+        tx.onerror=()=>reject(tx.error);
+    });
+}
+async function idbDeleteDoc(id){
+    const idb=await openDocsDB();
+    return new Promise((resolve,reject)=>{
+        const tx=idb.transaction(DOC_STORE,'readwrite');
+        tx.objectStore(DOC_STORE).delete(id);
+        tx.oncomplete=()=>resolve();
+        tx.onerror=()=>reject(tx.error);
+    });
+}
 
 function formatBytes(bytes){
     if(!bytes) return '0 KB';
@@ -2467,8 +2505,7 @@ function formatBytes(bytes){
 }
 function docIcon(type){
     if(type==='application/pdf') return '📕';
-    if(type==='image/jpeg'||type==='image/jpg') return '🖼️';
-    if(type==='image/png') return '🖼️';
+    if(type&&type.startsWith('image/')) return '🖼️';
     return '📄';
 }
 function docTypeLabel(type){
@@ -2482,41 +2519,21 @@ window.uploadDocuments=async function(ev){
     const files=Array.from(ev.target.files||[]); if(files.length===0)return;
     const btn=document.getElementById('docUploadBtn');
     const originalTxt=btn?btn.textContent:'';
-
-    if(currentUser==='gast'){
-        // Demo-Modus: nur lokal im Speicher, kein echter Upload
-        const docs=await loadDocuments();
+    if(btn){btn.disabled=true;btn.textContent='⏳ Speichern...';}
+    let ok=0;
+    try{
         for(const file of files){
             if(!DOC_ALLOWED.includes(file.type)){showToast(`⚠️ ${file.name}: Typ nicht erlaubt (nur PDF/JPG/PNG)`);continue;}
             if(file.size>DOC_MAX_SIZE){showToast(`⚠️ ${file.name}: Datei zu gross (max. 15 MB)`);continue;}
-            docs.unshift({id:Date.now().toString()+Math.random().toString(36).slice(2),name:file.name,type:file.type,size:file.size,url:URL.createObjectURL(file),path:null,uploadedAt:new Date().toISOString()});
-        }
-        await saveDocuments(docs); await renderDocuments();
-        showToast('✅ Dokument(e) hinzugefügt (Demo, nicht dauerhaft gespeichert)');
-        ev.target.value=''; return;
-    }
-
-    if(btn){btn.disabled=true;btn.textContent='⏳ Hochladen...';}
-    try{
-        const docs=await loadDocuments();
-        let ok=0, skip=0;
-        for(const file of files){
-            if(!DOC_ALLOWED.includes(file.type)){showToast(`⚠️ ${file.name}: Typ nicht erlaubt (nur PDF/JPG/PNG)`);skip++;continue;}
-            if(file.size>DOC_MAX_SIZE){showToast(`⚠️ ${file.name}: Datei zu gross (max. 15 MB)`);skip++;continue;}
             const id=Date.now().toString()+Math.random().toString(36).slice(2);
-            const path=`documents/${getKey()}/${id}_${file.name}`;
-            const sref=ref(storage,path);
-            await uploadBytes(sref,file);
-            const url=await getDownloadURL(sref);
-            docs.unshift({id,name:file.name,type:file.type,size:file.size,url,path,uploadedAt:new Date().toISOString()});
+            await idbPutDoc({id,userKey:getKey(),name:file.name,type:file.type,size:file.size,uploadedAt:new Date().toISOString(),blob:file});
             ok++;
         }
-        await saveDocuments(docs);
         await renderDocuments();
-        if(ok>0) showToast(`✅ ${ok} Dokument${ok!==1?'e':''} hochgeladen!`);
+        if(ok>0) showToast(`✅ ${ok} Dokument${ok!==1?'e':''} lokal gespeichert!`);
     }catch(err){
         console.error(err);
-        showToast('❌ Upload fehlgeschlagen! (Firebase Storage prüfen)');
+        showToast('❌ Speichern fehlgeschlagen! (IndexedDB nicht verfügbar?)');
     }finally{
         if(btn){btn.disabled=false;btn.textContent=originalTxt||'+ Dokument hochladen';}
         ev.target.value='';
@@ -2524,25 +2541,29 @@ window.uploadDocuments=async function(ev){
 };
 
 async function renderDocuments(){
-    const docs=await loadDocuments();
+    let docs=[];
+    try{ docs=await idbGetAllDocsForUser(getKey()); }catch(e){ console.error(e); }
+    docs.sort((a,b)=>(b.uploadedAt||'').localeCompare(a.uploadedAt||''));
     const search=(document.getElementById('docSearch')?.value||'').toLowerCase();
     const typF=document.getElementById('docFilterTyp')?.value||'';
     let filtered=docs.filter(d=>{
         if(search && !d.name.toLowerCase().includes(search)) return false;
         if(typF==='pdf' && d.type!=='application/pdf') return false;
-        if(typF==='bild' && !d.type.startsWith('image/')) return false;
+        if(typF==='bild' && !(d.type&&d.type.startsWith('image/'))) return false;
         return true;
     });
-    document.getElementById('docCount').textContent=docs.length;
-    document.getElementById('docSize').textContent=formatBytes(docs.reduce((s,d)=>s+(Number(d.size)||0),0));
+    const cEl=document.getElementById('docCount'), sEl=document.getElementById('docSize');
+    if(cEl) cEl.textContent=docs.length;
+    if(sEl) sEl.textContent=formatBytes(docs.reduce((s,d)=>s+(Number(d.size)||0),0));
     const tbody=document.getElementById('docBody');
     if(!tbody) return;
     if(filtered.length===0){
-        tbody.innerHTML=`<tr><td colspan="6"><div class="empty-state"><div class="empty-icon">📭</div><p>Noch keine Dokumente hochgeladen.</p></div></td></tr>`;
+        tbody.innerHTML=`<tr><td colspan="6"><div class="empty-state"><div class="empty-icon">📭</div><p>Noch keine Dokumente lokal gespeichert.</p></div></td></tr>`;
         return;
     }
     tbody.innerHTML=filtered.map((d,i)=>{
         const df=d.uploadedAt?new Date(d.uploadedAt).toLocaleString('de-CH',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}):'—';
+        const url=URL.createObjectURL(d.blob);
         return `<tr>
             <td style="color:rgba(255,255,255,0.22);font-size:0.72rem">${i+1}</td>
             <td class="td-name">${docIcon(d.type)} ${escapeHtml(d.name)}</td>
@@ -2550,7 +2571,7 @@ async function renderDocuments(){
             <td class="price-cell price-neutral">${formatBytes(d.size)}</td>
             <td class="td-date">${df}</td>
             <td><div class="action-btns" style="opacity:1;">
-                <a class="icon-btn edit-btn" href="${d.url}" target="_blank" rel="noopener" title="Öffnen / Herunterladen" style="text-decoration:none;">⬇️</a>
+                <a class="icon-btn edit-btn" href="${url}" target="_blank" rel="noopener" download="${escapeHtml(d.name)}" title="Öffnen / Herunterladen" style="text-decoration:none;">⬇️</a>
                 <button class="icon-btn del-btn" onclick="deleteDocument('${d.id}')" title="Löschen">🗑️</button>
             </div></td>
         </tr>`;
@@ -2559,12 +2580,7 @@ async function renderDocuments(){
 
 window.deleteDocument=async function(id){
     if(!confirm('Dokument wirklich löschen?'))return;
-    const docs=await loadDocuments();
-    const target=docs.find(d=>d.id===id);
-    if(target && target.path && currentUser!=='gast'){
-        try{ await deleteObject(ref(storage,target.path)); }catch(e){ console.error(e); }
-    }
-    await saveDocuments(docs.filter(d=>d.id!==id));
+    try{ await idbDeleteDoc(id); }catch(e){ console.error(e); showToast('❌ Löschen fehlgeschlagen!'); return; }
     await renderDocuments();
     showToast('🗑️ Dokument gelöscht');
 };
