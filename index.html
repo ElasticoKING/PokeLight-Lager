@@ -722,12 +722,16 @@
             border-radius: 1.2rem; padding: 1.1rem 1.3rem;
             display: flex; flex-direction: column; justify-content: center;
         }
-        .dash-wheel-wrap { position: relative; width: 100%; max-width: 300px; height: 300px; margin: 0 auto; }
-        .dash-wheel { width: 100%; height: 100%; border-radius: 50%; position: relative; animation: dashWheelSpin 70s ease-in-out infinite, dashWheelHue 9s ease-in-out infinite; }
-        .dash-wheel::after { content: ''; position: absolute; inset: 24%; border-radius: 50%; background: #0d0d1e; }
-        .dash-wheel-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: none; }
+        .dash-wheel-wrap { position: relative; width: 100%; max-width: 400px; height: 400px; margin: 0 auto; }
+        .dash-wheel-svg { width: 100%; height: 100%; display: block; overflow: visible; animation: dashWheelSpin 70s ease-in-out infinite, dashWheelHue 9s ease-in-out infinite; will-change: transform, filter; }
+        .dash-wheel-wrap:hover .dash-wheel-svg { animation-play-state: paused; }
+        .dash-seg { cursor: pointer; transition: transform 0.32s cubic-bezier(0.34,1.56,0.64,1), filter 0.25s ease; transform: translate(0px,0px); }
+        .dash-seg:hover { transform: translate(var(--tx), var(--ty)); filter: brightness(1.2); }
+        .dash-wheel-sheen { position: absolute; inset: 0; border-radius: 50%; background: radial-gradient(circle at 32% 26%, rgba(255,255,255,0.14), transparent 45%); mix-blend-mode: overlay; pointer-events: none; z-index: 4; }
+        .dash-wheel-center { position: absolute; inset: 0; pointer-events: none; z-index: 3; }
+        .dash-wheel-center-item { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); transition: opacity 0.22s ease; text-align: center; }
         @keyframes dashWheelSpin { 0% { transform: rotate(0deg); } 22% { transform: rotate(70deg); } 48% { transform: rotate(160deg); } 74% { transform: rotate(270deg); } 100% { transform: rotate(360deg); } }
-        @keyframes dashWheelHue { 0%,100% { filter: hue-rotate(0deg) saturate(1); } 50% { filter: hue-rotate(14deg) saturate(1.1); } }
+        @keyframes dashWheelHue { 0%,100% { filter: saturate(1.15) brightness(1); } 50% { filter: saturate(1.5) brightness(1.08); } }
         .dash-info-icon { font-size: 1.3rem; opacity: 0.5; margin-bottom: 0.4rem; }
         .dash-info-label { font-size: 0.68rem; letter-spacing: 1.6px; text-transform: uppercase; color: rgba(255,255,255,0.38); margin-bottom: 0.3rem; }
         .dash-info-value { font-size: 1.35rem; font-weight: 700; }
@@ -954,9 +958,14 @@
                     </div>
                     <div class="dash-chart-box">
                         <div class="dash-wheel-wrap">
-                            <div class="dash-wheel" id="dashWheel"></div>
+                            <svg class="dash-wheel-svg" id="dashWheelSvg" viewBox="0 0 200 200"></svg>
+                            <div class="dash-wheel-sheen"></div>
                             <div class="dash-wheel-center">
-                                <img src="https://i.imgur.com/bl9vMAE.png" alt="PokeLight" style="width:20%;height:20%;object-fit:contain;border-radius:50%;">
+                                <img src="https://i.imgur.com/bl9vMAE.png" alt="PokeLight" id="dashWheelLogo" class="dash-wheel-center-item" style="width:80px;height:80px;object-fit:contain;border-radius:50%;">
+                                <div id="dashWheelHoverLabel" class="dash-wheel-center-item" style="opacity:0;">
+                                    <div style="font-size:1rem;font-weight:700;" id="dashHoverName"></div>
+                                    <div style="font-size:0.78rem;color:rgba(255,255,255,0.5);margin-top:2px;" id="dashHoverPct"></div>
+                                </div>
                             </div>
                         </div>
                         <div id="dashKatLegend" style="display:flex;flex-wrap:wrap;justify-content:center;gap:10px;margin-top:1rem;font-size:0.72rem;color:rgba(255,255,255,0.55);"></div>
@@ -2691,8 +2700,8 @@ window.exportBuchPDF = async function() {
 
 // ==================== STARTSEITE / DASHBOARD ====================
 const DASH_KAT_COLORS={
-    'Booster Pack':'#7F77DD','Display':'#378ADD','Tin':'#EF9F27','ETB':'#1D9E75',
-    'Blister':'#D85A30','Promo':'#FAC775','Andere':'#5F5E5A'
+    'Booster Pack':'#8B5CF6','Display':'#3B82F6','Tin':'#F59E0B','ETB':'#10B981',
+    'Blister':'#EF4444','Promo':'#FBBF24','Andere':'#6B7280'
 };
 
 async function renderDashboard(){
@@ -2743,26 +2752,36 @@ async function renderDashboard(){
         warnBox.innerHTML = warnings.length===0 ? '' : warnings.map(w=>`<div style="background:rgba(220,38,38,0.1);border:1px solid rgba(220,38,38,0.3);border-radius:0.8rem;padding:0.65rem 1rem;margin-bottom:0.5rem;font-size:0.8rem;color:#fca5a5;">${w}</div>`).join('');
     }
 
-    // Lagerwert-nach-Kategorie: rotierendes Farbverlauf-Rad (CSS conic-gradient)
+    // Lagerwert-nach-Kategorie: SVG-Rad mit einzeln ansteuerbaren Segmenten
     const katMap={};
     inventur.forEach(p=>{const w=(Number(p.preis)||0)*(Number(p.menge)||0);katMap[p.kategorie]=(katMap[p.kategorie]||0)+w;});
     const katLabels=Object.keys(katMap).filter(k=>katMap[k]>0).sort((a,b)=>katMap[b]-katMap[a]);
     const katValues=katLabels.map(k=>katMap[k]);
     const katColors=katLabels.map(k=>DASH_KAT_COLORS[k]||'#5F5E5A');
     const legendEl=document.getElementById('dashKatLegend');
-    const wheelEl=document.getElementById('dashWheel');
+    const svgEl=document.getElementById('dashWheelSvg');
     const total=katValues.reduce((a,b)=>a+b,0);
-    if(wheelEl){
-        if(katLabels.length>0 && total>0){
-            let acc=0;
-            const stops=katLabels.map((k,i)=>{
-                const pct=katValues[i]/total*100;
-                const start=acc; acc+=pct;
-                return `${katColors[i]} ${start.toFixed(2)}% ${acc.toFixed(2)}%`;
-            });
-            wheelEl.style.background=`conic-gradient(from 0deg, ${stops.join(', ')})`;
+    if(svgEl){
+        if(katLabels.length===0 || total<=0){
+            svgEl.innerHTML=`<circle cx="100" cy="100" r="95" fill="#1a1a2e"></circle><circle cx="100" cy="100" r="38" fill="#0d0d1e"></circle>`;
+        }else if(katLabels.length===1){
+            svgEl.innerHTML=`<circle cx="100" cy="100" r="95" fill="${katColors[0]}" class="dash-seg" style="--tx:0px;--ty:0px" onmouseenter="dashSegHover('${escapeHtml(katLabels[0])}','100%')" onmouseleave="dashSegLeave()"></circle><circle cx="100" cy="100" r="38" fill="#0d0d1e"></circle>`;
         }else{
-            wheelEl.style.background='#1a1a2e';
+            const cx=100, cy=100, rOut=95, rIn=38, pop=13;
+            let acc=0;
+            svgEl.innerHTML=katLabels.map((k,i)=>{
+                const pct=katValues[i]/total*100;
+                const a0=acc*3.6; acc+=pct; const a1=acc*3.6;
+                const mid=(a0+a1)/2;
+                const rad=(mid-90)*Math.PI/180;
+                const dx=(Math.cos(rad)*pop).toFixed(2), dy=(Math.sin(rad)*pop).toFixed(2);
+                const large=(a1-a0)>180?1:0;
+                const p1=dashPolar(cx,cy,rOut,a0), p2=dashPolar(cx,cy,rOut,a1);
+                const p3=dashPolar(cx,cy,rIn,a1), p4=dashPolar(cx,cy,rIn,a0);
+                const d=`M${p1.x} ${p1.y} A${rOut} ${rOut} 0 ${large} 1 ${p2.x} ${p2.y} L${p3.x} ${p3.y} A${rIn} ${rIn} 0 ${large} 0 ${p4.x} ${p4.y} Z`;
+                const pctRound=Math.round(pct);
+                return `<path class="dash-seg" d="${d}" fill="${katColors[i]}" style="--tx:${dx}px;--ty:${dy}px" onmouseenter="dashSegHover('${escapeHtml(k)}','${pctRound}%')" onmouseleave="dashSegLeave()"></path>`;
+            }).join('');
         }
     }
     if(legendEl){
@@ -2773,6 +2792,27 @@ async function renderDashboard(){
     }
 }
 window.renderDashboard=renderDashboard;
+
+function dashPolar(cx,cy,r,angleDeg){
+    const rad=(angleDeg-90)*Math.PI/180;
+    return {x:(cx+r*Math.cos(rad)).toFixed(2), y:(cy+r*Math.sin(rad)).toFixed(2)};
+}
+window.dashSegHover=function(name,pct){
+    const logo=document.getElementById('dashWheelLogo');
+    const label=document.getElementById('dashWheelHoverLabel');
+    const nameEl=document.getElementById('dashHoverName');
+    const pctEl=document.getElementById('dashHoverPct');
+    if(nameEl) nameEl.textContent=name;
+    if(pctEl) pctEl.textContent=pct;
+    if(logo) logo.style.opacity='0';
+    if(label) label.style.opacity='1';
+};
+window.dashSegLeave=function(){
+    const logo=document.getElementById('dashWheelLogo');
+    const label=document.getElementById('dashWheelHoverLabel');
+    if(logo) logo.style.opacity='1';
+    if(label) label.style.opacity='0';
+};
 
 // ==================== INVENTURZÄHLUNG ====================
 let _zaehlungCache=null; // laufende Zählung, lokal gehalten während der Eingabe
