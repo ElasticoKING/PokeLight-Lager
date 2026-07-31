@@ -893,7 +893,7 @@
             <button onclick="resetPassword()" style="background:none;border:none;color:rgba(255,255,255,0.35);cursor:pointer;font-size:0.8rem;margin-top:0.8rem;text-decoration:underline;">🔑 Passwort vergessen?</button>
         </div>
         <div class="error-msg" id="errorMsg"></div>
-        <div style="margin-top:1.2rem;font-size:0.72rem;color:rgba(255,255,255,0.2);letter-spacing:1px;">Version 1.7</div>
+        <div style="margin-top:1.2rem;font-size:0.72rem;color:rgba(255,255,255,0.2);letter-spacing:1px;">Version 1.8</div>
     </div>
 </div>
 
@@ -1548,7 +1548,7 @@
             <canvas id="mainChart"></canvas>
             <div class="chart-empty" id="chartEmpty" style="display:none"><div style="font-size:2.5rem">📉</div><div>Noch keine Verlaufsdaten.</div></div>
         </div>
-        <div style="margin-top:0.8rem;font-size:0.7rem;color:rgba(255,255,255,0.22);text-align:center;">Snapshot wird automatisch beim Einloggen gespeichert · Maximal 90 Einträge</div>
+        <div style="margin-top:0.8rem;font-size:0.7rem;color:rgba(255,255,255,0.22);text-align:center;">Snapshot wird automatisch beim Einloggen gespeichert · Maximal 400 Einträge</div>
     </div>
 </div>
 
@@ -2278,7 +2278,7 @@ async function saveChartSnapshot(){
     const last=history[history.length-1];
     if(last&&last.date===today){last.lagerwert=lw;last.menge=menge;last.produkte=produkte;}
     else{history.push({date:today,lagerwert:lw,menge,produkte});}
-    if(history.length>90)history.splice(0,history.length-90);
+    if(history.length>400)history.splice(0,history.length-400);
     await saveChartHistory(history);
 }
 window.openChartModal=async function(){
@@ -2583,9 +2583,27 @@ window.exportBuchPDF = async function() {
     const totalEin  = einnahmen.reduce((s,e)=>s+Number(e.betrag),0);
     const totalAus  = ausgaben.reduce((s,e)=>s+Number(e.betrag),0);
     const gewinn    = totalEin - totalAus;
-    const lagerWert = invData.reduce((s,p)=>s+(Number(p.preis)||0)*(Number(p.menge)||0),0);
+
+    // Lagerwert per 31.12. des gewählten Jahres — aus dem Chart-Verlauf (Snapshot-Historie),
+    // NICHT der heutige Live-Wert, da die PDF auch Monate später (z.B. für die Steuererklärung) erstellt wird.
+    const chartHist = await loadChartHistory();
+    const yearSnapshots = chartHist.filter(h=>new Date(h.date).getFullYear()===year).sort((a,b)=>a.date.localeCompare(b.date));
+    let lagerWert, lagerWertStichtag, lagerWertIstHistorisch;
+    if (yearSnapshots.length > 0) {
+        const letzterSnapshot = yearSnapshots[yearSnapshots.length-1];
+        lagerWert = letzterSnapshot.lagerwert;
+        lagerWertStichtag = new Date(letzterSnapshot.date).toLocaleDateString('de-CH');
+        lagerWertIstHistorisch = true;
+    } else {
+        lagerWert = invData.reduce((s,p)=>s+(Number(p.preis)||0)*(Number(p.menge)||0),0);
+        lagerWertStichtag = new Date().toLocaleDateString('de-CH');
+        lagerWertIstHistorisch = false;
+    }
     const gSign     = gewinn >= 0 ? '+' : '-';
     const gColor    = gewinn >= 0 ? [22,163,74] : [220,38,38];
+    const lagerLabel = lagerWertIstHistorisch
+        ? `Lagerbestand per ${lagerWertStichtag}`
+        : `Lagerbestand (aktueller Wert — kein Verlauf für ${year} gespeichert)`;
 
     const fmtDate = d => { try { return new Date(d).toLocaleDateString('de-CH'); } catch { return d||''; }};
     const fmtChf  = n => 'CHF ' + Math.abs(Number(n)).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g,"'");
@@ -2791,7 +2809,7 @@ window.exportBuchPDF = async function() {
             ['Gesamte Einnahmen (Verkäufe)',                         fmtChf(totalEin)],
             ['Gesamte Ausgaben (Einkäufe)',                          fmtChf(totalAus)],
             ['Jahresgewinn / -verlust',                              `${gKSign} ${fmtChf(gewinnKorrigiert)}`],
-            ['Lagerbestand Ende 31.12.',                              fmtChf(lagerWert)],
+            [lagerLabel,                              fmtChf(lagerWert)],
         ],
         theme:'plain',
         bodyStyles: { fontSize:9, cellPadding:{top:5,bottom:5,left:6,right:6}, textColor:[55,65,81] },
@@ -2827,7 +2845,7 @@ window.exportBuchPDF = async function() {
             ['Einnahmen (Verkäufe)',                                  fmtChf(totalEin)],
             ['Ausgaben (Einkäufe)',                                   fmtChf(totalAus)],
             ['Persönlicher Jahresgewinn',                             `${gKSign} ${fmtChf(gewinnKorrigiert)}`],
-            ['Lagerbestand Ende 31.12.',                              fmtChf(lagerWert)],
+            [lagerLabel,                              fmtChf(lagerWert)],
         ],
         theme:'plain',
         bodyStyles: { fontSize:9, cellPadding:{top:5,bottom:5,left:6,right:6}, textColor:[55,65,81] },
