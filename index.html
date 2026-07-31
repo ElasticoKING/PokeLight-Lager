@@ -2563,6 +2563,11 @@ window.exportBuchPDF = async function() {
     const invData = await loadData();
     const yearData= all.filter(e => new Date(e.datum).getFullYear() === year);
     if (yearData.length === 0) { showToast('⚠️ Keine Buchungen für ' + year + '!'); return; }
+
+    const kompakt = confirm(
+        `PDF-Format wählen:\n\nOK = Kompakt (Zusammenfassung nach Kategorie — wenige Seiten, ideal für die Steuererklärung)\nAbbrechen = Ausführlich (jede einzelne Buchung aufgelistet)`
+    );
+
     showToast('⏳ PDF wird erstellt…');
 
     const { jsPDF } = window.jspdf;
@@ -2625,6 +2630,12 @@ window.exportBuchPDF = async function() {
     doc.line(ML, y, ML+CW, y);
     y += 6;
 
+    if (kompakt) {
+        doc.setFontSize(7); doc.setFont('helvetica','italic'); doc.setTextColor(140,140,140);
+        doc.text('Kompakte Zusammenfassung nach Kategorie. Detaillierte Einzelbuchungen: CSV-Export in der Buchhaltung.', ML, y);
+        y += 5;
+    }
+
     // ================================================================
     // ZUSAMMENFASSUNG — 5 Karten
     // ================================================================
@@ -2664,13 +2675,25 @@ window.exportBuchPDF = async function() {
     // EINNAHMEN
     // ================================================================
     sectionTitle('Einnahmen', [22,163,74]);
-    if (einnahmen.length > 0) {
+    if (!kompakt && einnahmen.length > 0) {
         doc.autoTable({ ...baseTable(
             [['Datum','Beschreibung','Kategorie','Betrag']],
             einnahmen.map(e=>[fmtDate(e.datum), beschrZelle(e), e.kategorie, '+ '+Number(e.betrag).toFixed(2)]),
             [['','','Total', fmtChf(totalEin)]],
             { 0:{cellWidth:22}, 1:{cellWidth:98}, 2:{cellWidth:28}, 3:{cellWidth:34,halign:'right',textColor:[22,163,74],fontStyle:'bold'} },
             [240,253,244], 3
+        ), startY:y, margin:{left:ML,right:MR} });
+        y = doc.lastAutoTable.finalY + 7;
+    } else if (kompakt && einnahmen.length > 0) {
+        const katMap={};
+        einnahmen.forEach(e=>{ katMap[e.kategorie]=(katMap[e.kategorie]||0)+Number(e.betrag); });
+        const katRows=Object.keys(katMap).sort((a,b)=>katMap[b]-katMap[a]).map(k=>[k, String(einnahmen.filter(e=>e.kategorie===k).length), '+ '+katMap[k].toFixed(2)]);
+        doc.autoTable({ ...baseTable(
+            [['Kategorie','Anzahl Buchungen','Betrag']],
+            katRows,
+            [['Total', String(einnahmen.length), fmtChf(totalEin)]],
+            { 0:{cellWidth:80}, 1:{cellWidth:50,halign:'center'}, 2:{cellWidth:52,halign:'right',textColor:[22,163,74],fontStyle:'bold'} },
+            [240,253,244], 2
         ), startY:y, margin:{left:ML,right:MR} });
         y = doc.lastAutoTable.finalY + 7;
     } else { doc.setFontSize(8); doc.setTextColor(150,150,150); doc.text('Keine Einnahmen.', ML, y+4); y+=10; }
@@ -2681,13 +2704,25 @@ window.exportBuchPDF = async function() {
     // AUSGABEN
     // ================================================================
     sectionTitle('Ausgaben', [220,38,38]);
-    if (ausgaben.length > 0) {
+    if (!kompakt && ausgaben.length > 0) {
         doc.autoTable({ ...baseTable(
             [['Datum','Beschreibung','Kategorie','Betrag']],
             ausgaben.map(e=>[fmtDate(e.datum), beschrZelle(e), e.kategorie, '- '+Number(e.betrag).toFixed(2)]),
             [['','','Total', fmtChf(totalAus)]],
             { 0:{cellWidth:22}, 1:{cellWidth:98}, 2:{cellWidth:28}, 3:{cellWidth:34,halign:'right',textColor:[220,38,38],fontStyle:'bold'} },
             [255,241,242], 3
+        ), startY:y, margin:{left:ML,right:MR} });
+        y = doc.lastAutoTable.finalY + 7;
+    } else if (kompakt && ausgaben.length > 0) {
+        const katMap={};
+        ausgaben.forEach(e=>{ katMap[e.kategorie]=(katMap[e.kategorie]||0)+Number(e.betrag); });
+        const katRows=Object.keys(katMap).sort((a,b)=>katMap[b]-katMap[a]).map(k=>[k, String(ausgaben.filter(e=>e.kategorie===k).length), '- '+katMap[k].toFixed(2)]);
+        doc.autoTable({ ...baseTable(
+            [['Kategorie','Anzahl Buchungen','Betrag']],
+            katRows,
+            [['Total', String(ausgaben.length), fmtChf(totalAus)]],
+            { 0:{cellWidth:80}, 1:{cellWidth:50,halign:'center'}, 2:{cellWidth:52,halign:'right',textColor:[220,38,38],fontStyle:'bold'} },
+            [255,241,242], 2
         ), startY:y, margin:{left:ML,right:MR} });
         y = doc.lastAutoTable.finalY + 7;
     } else { doc.setFontSize(8); doc.setTextColor(150,150,150); doc.text('Keine Ausgaben.', ML, y+4); y+=10; }
