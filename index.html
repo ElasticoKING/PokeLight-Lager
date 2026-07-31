@@ -2672,60 +2672,78 @@ window.exportBuchPDF = async function() {
     };
 
     // ================================================================
-    // EINNAHMEN
+    // BUCHUNGEN — Ausführlich: pro Monat gruppiert / Kompakt: nach Kategorie
     // ================================================================
-    sectionTitle('Einnahmen', [22,163,74]);
-    if (!kompakt && einnahmen.length > 0) {
-        doc.autoTable({ ...baseTable(
-            [['Datum','Beschreibung','Kategorie','Betrag']],
-            einnahmen.map(e=>[fmtDate(e.datum), beschrZelle(e), e.kategorie, '+ '+Number(e.betrag).toFixed(2)]),
-            [['','','Total', fmtChf(totalEin)]],
-            { 0:{cellWidth:22}, 1:{cellWidth:98}, 2:{cellWidth:28}, 3:{cellWidth:34,halign:'right',textColor:[22,163,74],fontStyle:'bold'} },
-            [240,253,244], 3
-        ), startY:y, margin:{left:ML,right:MR} });
-        y = doc.lastAutoTable.finalY + 7;
-    } else if (kompakt && einnahmen.length > 0) {
-        const katMap={};
-        einnahmen.forEach(e=>{ katMap[e.kategorie]=(katMap[e.kategorie]||0)+Number(e.betrag); });
-        const katRows=Object.keys(katMap).sort((a,b)=>katMap[b]-katMap[a]).map(k=>[k, String(einnahmen.filter(e=>e.kategorie===k).length), '+ '+katMap[k].toFixed(2)]);
-        doc.autoTable({ ...baseTable(
-            [['Kategorie','Anzahl Buchungen','Betrag']],
-            katRows,
-            [['Total', String(einnahmen.length), fmtChf(totalEin)]],
-            { 0:{cellWidth:80}, 1:{cellWidth:50,halign:'center'}, 2:{cellWidth:52,halign:'right',textColor:[22,163,74],fontStyle:'bold'} },
-            [240,253,244], 2
-        ), startY:y, margin:{left:ML,right:MR} });
-        y = doc.lastAutoTable.finalY + 7;
-    } else { doc.setFontSize(8); doc.setTextColor(150,150,150); doc.text('Keine Einnahmen.', ML, y+4); y+=10; }
+    if (!kompakt) {
+        sectionTitle('Buchungen nach Monat', [17,24,39]);
+        const monateWithData = MONATE.map((m,i)=>({m,i})).filter(({i})=>yearData.some(e=>new Date(e.datum).getMonth()===i));
+        if (monateWithData.length === 0) {
+            doc.setFontSize(8); doc.setTextColor(150,150,150); doc.text('Keine Buchungen.', ML, y+4); y+=10;
+        }
+        monateWithData.forEach(({m,i}, idx) => {
+            if (y > PH - 55) { doc.addPage(); y = MT; }
+            const monatEntries = yearData.filter(e=>new Date(e.datum).getMonth()===i).sort((a,b)=>a.datum.localeCompare(b.datum));
+            const monatEin = monatEntries.filter(e=>e.typ==='einnahme').reduce((s,e)=>s+Number(e.betrag),0);
+            const monatAus = monatEntries.filter(e=>e.typ==='ausgabe').reduce((s,e)=>s+Number(e.betrag),0);
 
-    if (y > PH - 70) { doc.addPage(); y = MT; }
+            doc.setFontSize(9.5); doc.setFont('helvetica','bold'); doc.setTextColor(17,24,39);
+            doc.text(`${m} ${year}`, ML, y+3.5);
+            doc.setFontSize(7.5); doc.setFont('helvetica','normal'); doc.setTextColor(107,114,128);
+            doc.text(`Einnahmen ${fmtChf(monatEin)}   ·   Ausgaben ${fmtChf(monatAus)}   ·   Gewinn ${monatEin-monatAus>=0?'+':'-'}${fmtChf(monatEin-monatAus)}`, ML+CW, y+3.5, { align:'right' });
+            y += 6;
 
-    // ================================================================
-    // AUSGABEN
-    // ================================================================
-    sectionTitle('Ausgaben', [220,38,38]);
-    if (!kompakt && ausgaben.length > 0) {
-        doc.autoTable({ ...baseTable(
-            [['Datum','Beschreibung','Kategorie','Betrag']],
-            ausgaben.map(e=>[fmtDate(e.datum), beschrZelle(e), e.kategorie, '- '+Number(e.betrag).toFixed(2)]),
-            [['','','Total', fmtChf(totalAus)]],
-            { 0:{cellWidth:22}, 1:{cellWidth:98}, 2:{cellWidth:28}, 3:{cellWidth:34,halign:'right',textColor:[220,38,38],fontStyle:'bold'} },
-            [255,241,242], 3
-        ), startY:y, margin:{left:ML,right:MR} });
-        y = doc.lastAutoTable.finalY + 7;
-    } else if (kompakt && ausgaben.length > 0) {
-        const katMap={};
-        ausgaben.forEach(e=>{ katMap[e.kategorie]=(katMap[e.kategorie]||0)+Number(e.betrag); });
-        const katRows=Object.keys(katMap).sort((a,b)=>katMap[b]-katMap[a]).map(k=>[k, String(ausgaben.filter(e=>e.kategorie===k).length), '- '+katMap[k].toFixed(2)]);
-        doc.autoTable({ ...baseTable(
-            [['Kategorie','Anzahl Buchungen','Betrag']],
-            katRows,
-            [['Total', String(ausgaben.length), fmtChf(totalAus)]],
-            { 0:{cellWidth:80}, 1:{cellWidth:50,halign:'center'}, 2:{cellWidth:52,halign:'right',textColor:[220,38,38],fontStyle:'bold'} },
-            [255,241,242], 2
-        ), startY:y, margin:{left:ML,right:MR} });
-        y = doc.lastAutoTable.finalY + 7;
-    } else { doc.setFontSize(8); doc.setTextColor(150,150,150); doc.text('Keine Ausgaben.', ML, y+4); y+=10; }
+            doc.autoTable({
+                head: [['Datum','Beschreibung','Kategorie','Typ','Betrag']],
+                body: monatEntries.map(e=>[fmtDate(e.datum), beschrZelle(e), e.kategorie, e.typ==='einnahme'?'Einnahme':'Ausgabe', (e.typ==='einnahme'?'+ ':'- ')+Number(e.betrag).toFixed(2)]),
+                theme: 'plain',
+                headStyles: { fillColor:[243,244,246], textColor:[80,80,80], fontStyle:'bold', fontSize:7.3, cellPadding:3 },
+                bodyStyles: { fontSize:8, cellPadding:{top:3.5,bottom:3.5,left:4,right:4}, textColor:[55,65,81] },
+                alternateRowStyles: { fillColor:[249,250,251] },
+                columnStyles: { 0:{cellWidth:20}, 1:{cellWidth:78}, 2:{cellWidth:26}, 3:{cellWidth:20}, 4:{cellWidth:32,halign:'right',fontStyle:'bold'} },
+                tableLineColor:[220,220,220], tableLineWidth:0.2,
+                startY:y, margin:{left:ML,right:MR},
+                didParseCell: d => {
+                    if (d.section==='body' && d.column.index===4) {
+                        const isEin = monatEntries[d.row.index]?.typ==='einnahme';
+                        d.cell.styles.textColor = isEin ? [22,163,74] : [220,38,38];
+                    }
+                }
+            });
+            y = doc.lastAutoTable.finalY + (idx===monateWithData.length-1 ? 7 : 9);
+        });
+    } else {
+        sectionTitle('Einnahmen', [22,163,74]);
+        if (einnahmen.length > 0) {
+            const katMap={};
+            einnahmen.forEach(e=>{ katMap[e.kategorie]=(katMap[e.kategorie]||0)+Number(e.betrag); });
+            const katRows=Object.keys(katMap).sort((a,b)=>katMap[b]-katMap[a]).map(k=>[k, String(einnahmen.filter(e=>e.kategorie===k).length), '+ '+katMap[k].toFixed(2)]);
+            doc.autoTable({ ...baseTable(
+                [['Kategorie','Anzahl Buchungen','Betrag']],
+                katRows,
+                [['Total', String(einnahmen.length), fmtChf(totalEin)]],
+                { 0:{cellWidth:80}, 1:{cellWidth:50,halign:'center'}, 2:{cellWidth:52,halign:'right',textColor:[22,163,74],fontStyle:'bold'} },
+                [240,253,244], 2
+            ), startY:y, margin:{left:ML,right:MR} });
+            y = doc.lastAutoTable.finalY + 7;
+        } else { doc.setFontSize(8); doc.setTextColor(150,150,150); doc.text('Keine Einnahmen.', ML, y+4); y+=10; }
+
+        if (y > PH - 70) { doc.addPage(); y = MT; }
+
+        sectionTitle('Ausgaben', [220,38,38]);
+        if (ausgaben.length > 0) {
+            const katMap={};
+            ausgaben.forEach(e=>{ katMap[e.kategorie]=(katMap[e.kategorie]||0)+Number(e.betrag); });
+            const katRows=Object.keys(katMap).sort((a,b)=>katMap[b]-katMap[a]).map(k=>[k, String(ausgaben.filter(e=>e.kategorie===k).length), '- '+katMap[k].toFixed(2)]);
+            doc.autoTable({ ...baseTable(
+                [['Kategorie','Anzahl Buchungen','Betrag']],
+                katRows,
+                [['Total', String(ausgaben.length), fmtChf(totalAus)]],
+                { 0:{cellWidth:80}, 1:{cellWidth:50,halign:'center'}, 2:{cellWidth:52,halign:'right',textColor:[220,38,38],fontStyle:'bold'} },
+                [255,241,242], 2
+            ), startY:y, margin:{left:ML,right:MR} });
+            y = doc.lastAutoTable.finalY + 7;
+        } else { doc.setFontSize(8); doc.setTextColor(150,150,150); doc.text('Keine Ausgaben.', ML, y+4); y+=10; }
+    }
 
     if (y > PH - 60) { doc.addPage(); y = MT; }
 
