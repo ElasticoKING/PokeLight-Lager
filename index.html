@@ -2956,17 +2956,22 @@ async function renderDashboard(){
         // Sanfte, wandernde Puls-Welle über die Punkte — rein visuell, verändert keine echten Werte
         const pointCount=monthlyRevenue.length;
         const baseR=3, amp=2.2, speed=0.0016, phaseStep=0.7;
+        let dashRevenuePaused=false;
         function animateRipple(ts){
             if(!dashRevenueChartInstance){return;}
-            const radii=[];
-            for(let i=0;i<pointCount;i++){
-                radii.push(baseR + amp*(0.5+0.5*Math.sin(ts*speed - i*phaseStep)));
+            if(!dashRevenuePaused){
+                const radii=[];
+                for(let i=0;i<pointCount;i++){
+                    radii.push(baseR + amp*(0.5+0.5*Math.sin(ts*speed - i*phaseStep)));
+                }
+                dashRevenueChartInstance.data.datasets[0].pointRadius=radii;
+                dashRevenueChartInstance.update('none');
             }
-            dashRevenueChartInstance.data.datasets[0].pointRadius=radii;
-            dashRevenueChartInstance.update('none');
             dashRevenueAnimId=requestAnimationFrame(animateRipple);
         }
         dashRevenueAnimId=requestAnimationFrame(animateRipple);
+        revCanvas.onmouseenter=function(){dashRevenuePaused=true;};
+        revCanvas.onmouseleave=function(){dashRevenuePaused=false;};
     }
 }
 window.renderDashboard=renderDashboard;
