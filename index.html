@@ -1044,7 +1044,7 @@
                     </div>
                 </div>
 
-                <div class="section-title">Umsatz-Verlauf <span id="dashRevenueYear"></span></div>
+                <div class="section-title">Umsatz & Gewinn <span id="dashRevenueYear"></span></div>
                 <div class="table-wrap dash-revenue-card" style="padding:1.2rem;">
                     <div class="dash-revenue-wrap">
                         <canvas id="dashRevenueChart"></canvas>
@@ -2906,16 +2906,19 @@ async function renderDashboard(){
         }).join('');
     }
 
-    // Umsatz-Verlauf: Einnahmen pro Monat, ganzes Jahr, als weiche Wellenkurve
+    // Umsatz-Verlauf: Einnahmen & Gewinn pro Monat, ganzes Jahr, als weiche Wellenkurven
     const yearEl=document.getElementById('dashRevenueYear');
     if(yearEl) yearEl.textContent=now.getFullYear();
     const monthLabels=['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
     const monthlyRevenue=Array(12).fill(0);
+    const monthlyAusgaben=Array(12).fill(0);
     buch.forEach(e=>{
-        if(e.typ!=='einnahme')return;
         const d=new Date(e.datum);
-        if(d.getFullYear()===now.getFullYear()) monthlyRevenue[d.getMonth()]+=Number(e.betrag)||0;
+        if(d.getFullYear()!==now.getFullYear())return;
+        if(e.typ==='einnahme') monthlyRevenue[d.getMonth()]+=Number(e.betrag)||0;
+        else if(e.typ==='ausgabe') monthlyAusgaben[d.getMonth()]+=Number(e.betrag)||0;
     });
+    const monthlyProfit=monthlyRevenue.map((v,i)=>v-monthlyAusgaben[i]);
     const revCanvas=document.getElementById('dashRevenueChart');
     if(dashRevenueAnimId){cancelAnimationFrame(dashRevenueAnimId);dashRevenueAnimId=null;}
     if(revCanvas){
@@ -2924,9 +2927,13 @@ async function renderDashboard(){
         const grad=ctx.createLinearGradient(0,0,0,200);
         grad.addColorStop(0,'rgba(59,130,246,0.35)');
         grad.addColorStop(1,'rgba(59,130,246,0)');
+        const gradProfit=ctx.createLinearGradient(0,0,0,200);
+        gradProfit.addColorStop(0,'rgba(34,197,94,0.3)');
+        gradProfit.addColorStop(1,'rgba(34,197,94,0)');
         dashRevenueChartInstance=new Chart(revCanvas,{
             type:'line',
             data:{labels:monthLabels,datasets:[{
+                label:'Einnahmen',
                 data:monthlyRevenue,
                 borderColor:'#3B82F6',
                 backgroundColor:grad,
@@ -2938,14 +2945,27 @@ async function renderDashboard(){
                 pointBorderColor:'#0d0d1e',
                 pointBorderWidth:2,
                 pointHoverRadius:7
+            },{
+                label:'Gewinn',
+                data:monthlyProfit,
+                borderColor:'#22c55e',
+                backgroundColor:gradProfit,
+                borderWidth:2.5,
+                fill:true,
+                tension:0.45,
+                pointRadius:3,
+                pointBackgroundColor:'#22c55e',
+                pointBorderColor:'#0d0d1e',
+                pointBorderWidth:2,
+                pointHoverRadius:7
             }]},
             options:{
                 responsive:true, maintainAspectRatio:false,
                 animation:{duration:1000,easing:'easeOutQuart'},
                 interaction:{mode:'index',intersect:false},
-                plugins:{legend:{display:false},tooltip:{
+                plugins:{legend:{display:true,position:'top',align:'end',labels:{color:'rgba(255,255,255,0.55)',boxWidth:10,boxHeight:10,font:{size:11},padding:14,usePointStyle:true,pointStyle:'circle'}},tooltip:{
                     backgroundColor:'rgba(10,10,30,0.95)',borderColor:'rgba(255,255,255,0.1)',borderWidth:1,padding:10,
-                    callbacks:{label:c=>'CHF '+chf(c.raw)}
+                    callbacks:{label:c=>c.dataset.label+': CHF '+chf(c.raw)}
                 }},
                 scales:{
                     x:{grid:{color:'rgba(255,255,255,0.05)'},ticks:{color:'rgba(255,255,255,0.35)',font:{size:10}}},
@@ -2960,11 +2980,13 @@ async function renderDashboard(){
         function animateRipple(ts){
             if(!dashRevenueChartInstance){return;}
             if(!dashRevenuePaused){
-                const radii=[];
+                const radiiA=[], radiiB=[];
                 for(let i=0;i<pointCount;i++){
-                    radii.push(baseR + amp*(0.5+0.5*Math.sin(ts*speed - i*phaseStep)));
+                    radiiA.push(baseR + amp*(0.5+0.5*Math.sin(ts*speed - i*phaseStep)));
+                    radiiB.push(baseR + amp*(0.5+0.5*Math.sin(ts*speed - i*phaseStep + 1.1)));
                 }
-                dashRevenueChartInstance.data.datasets[0].pointRadius=radii;
+                dashRevenueChartInstance.data.datasets[0].pointRadius=radiiA;
+                dashRevenueChartInstance.data.datasets[1].pointRadius=radiiB;
                 dashRevenueChartInstance.update('none');
             }
             dashRevenueAnimId=requestAnimationFrame(animateRipple);
