@@ -375,6 +375,7 @@
             padding-bottom: 2rem;
         }
         .dash-revenue-wrap { position: relative; width: 100%; height: 200px; }
+        .dash-revenue-card { animation: dashPulse 5s ease-in-out infinite; }
 
         /* Kompakteres Layout auf Bildschirmen mit weniger Höhe (z.B. 1080p),
            damit die Startseite ohne Scrollen komplett sichtbar ist */
@@ -1037,7 +1038,7 @@
                 </div>
 
                 <div class="section-title">Umsatz-Verlauf <span id="dashRevenueYear"></span></div>
-                <div class="table-wrap" style="padding:1.2rem;">
+                <div class="table-wrap dash-revenue-card" style="padding:1.2rem;">
                     <div class="dash-revenue-wrap">
                         <canvas id="dashRevenueChart"></canvas>
                     </div>
@@ -1654,6 +1655,7 @@ window.switchPage = function(page) {
     document.getElementById('page-'+page).classList.add('active');
     document.getElementById('nav-'+page).classList.add('active');
     if(page==='dashboard') renderDashboard();
+    else if(dashRevenueAnimId){cancelAnimationFrame(dashRevenueAnimId);dashRevenueAnimId=null;}
     if(page==='zaehlung') renderZaehlung();
     if(page==='buchhaltung') renderBuchhaltung();
     if(page==='aufgaben') renderTasks();
@@ -2804,6 +2806,7 @@ window.exportBuchPDF = async function() {
 
 // ==================== STARTSEITE / DASHBOARD ====================
 let dashRevenueChartInstance=null;
+let dashRevenueAnimId=null;
 const DASH_KAT_COLORS={
     'Booster Pack':'#8B5CF6','Display':'#3B82F6','Tin':'#F59E0B','ETB':'#10B981',
     'Blister':'#EF4444','Promo':'#FBBF24','Andere':'#6B7280'
@@ -2907,6 +2910,7 @@ async function renderDashboard(){
         if(d.getFullYear()===now.getFullYear()) monthlyRevenue[d.getMonth()]+=Number(e.betrag)||0;
     });
     const revCanvas=document.getElementById('dashRevenueChart');
+    if(dashRevenueAnimId){cancelAnimationFrame(dashRevenueAnimId);dashRevenueAnimId=null;}
     if(revCanvas){
         if(dashRevenueChartInstance){dashRevenueChartInstance.destroy();dashRevenueChartInstance=null;}
         const ctx=revCanvas.getContext('2d');
@@ -2926,7 +2930,7 @@ async function renderDashboard(){
                 pointBackgroundColor:'#3B82F6',
                 pointBorderColor:'#0d0d1e',
                 pointBorderWidth:2,
-                pointHoverRadius:6
+                pointHoverRadius:7
             }]},
             options:{
                 responsive:true, maintainAspectRatio:false,
@@ -2942,6 +2946,20 @@ async function renderDashboard(){
                 }
             }
         });
+        // Sanfte, wandernde Puls-Welle über die Punkte — rein visuell, verändert keine echten Werte
+        const pointCount=monthlyRevenue.length;
+        const baseR=3, amp=2.2, speed=0.0016, phaseStep=0.7;
+        function animateRipple(ts){
+            if(!dashRevenueChartInstance){return;}
+            const radii=[];
+            for(let i=0;i<pointCount;i++){
+                radii.push(baseR + amp*(0.5+0.5*Math.sin(ts*speed - i*phaseStep)));
+            }
+            dashRevenueChartInstance.data.datasets[0].pointRadius=radii;
+            dashRevenueChartInstance.update('none');
+            dashRevenueAnimId=requestAnimationFrame(animateRipple);
+        }
+        dashRevenueAnimId=requestAnimationFrame(animateRipple);
     }
 }
 window.renderDashboard=renderDashboard;
