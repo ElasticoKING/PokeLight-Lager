@@ -980,6 +980,7 @@
         </div>
 
         <input type="file" id="csvImportInput" accept=".csv" style="display:none" onchange="importCSV(event)">
+        <input type="file" id="shopifySkuInput" accept=".csv" style="display:none" onchange="importShopifySkus(event)">
 
         <div class="sidebar-bottom">
             <div class="sidebar-user" id="sidebarUserBox">
@@ -1063,9 +1064,20 @@
                     </div>
                     <div class="inv-actions" style="display:flex;gap:0.6rem;flex-wrap:wrap;align-items:center;">
                         <button class="btn btn-primary" onclick="openAddModal()">+ Produkt hinzufügen</button>
-                        <button class="btn btn-ghost" onclick="exportCSV()">⬇ Export CSV</button>
-                        <button class="btn btn-ghost" onclick="document.getElementById('csvImportInput').click()">⬆ Import CSV</button>
-                        <button class="btn btn-ghost" onclick="openEmailModal()">📧 E-Mail</button>
+                        <div class="header-more-wrap">
+                            <button class="btn btn-ghost" onclick="toggleInvMenu('csv')">📄 CSV ▾</button>
+                            <div class="header-more-menu" id="invMenuCsv">
+                                <button class="btn btn-ghost btn-sm" onclick="exportCSV();closeInvMenus()">⬇ Export CSV</button>
+                                <button class="btn btn-ghost btn-sm" onclick="document.getElementById('csvImportInput').click();closeInvMenus()">⬆ Import CSV</button>
+                            </div>
+                        </div>
+                        <div class="header-more-wrap">
+                            <button class="btn btn-ghost" onclick="toggleInvMenu('extras')">⚙ Extras ▾</button>
+                            <div class="header-more-menu" id="invMenuExtras">
+                                <button class="btn btn-ghost btn-sm" onclick="openEmailModal();closeInvMenus()">📧 E-Mail</button>
+                                <button class="btn btn-ghost btn-sm" onclick="document.getElementById('shopifySkuInput').click();closeInvMenus()">🔗 Shopify-SKUs abgleichen</button>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -1390,6 +1402,7 @@
             <div class="form-group"><label class="form-label">EK-Preis / Stück (CHF) *</label><input class="form-input" id="fPreis" type="number" min="0" step="0.01" placeholder="0.00"></div>
             <div class="form-group"><label class="form-label">Kaufdatum</label><input class="form-input" id="fDatum" type="date"></div>
         </div>
+        <div class="form-group"><label class="form-label">SKU</label><input class="form-input" id="fSku" type="text" placeholder="z.B. 0005 (optional)"></div>
         <div class="form-group"><label class="form-label">Notiz</label><textarea class="form-textarea" id="fNotiz" placeholder="Irgendetwas Wichtiges?"></textarea></div>
         <div class="modal-actions">
             <button class="btn btn-secondary" onclick="closeModal()">Abbrechen</button>
@@ -1562,6 +1575,34 @@
     </div>
 </div>
 
+<!-- SHOPIFY SKU-MATCH VORSCHAU MODAL -->
+<div class="sold-modal-overlay" id="skuMatchModalOverlay">
+    <div class="sold-modal">
+        <div class="sold-modal-header">
+            <div>
+                <div class="sold-modal-title">🔗 Shopify-SKUs abgleichen</div>
+                <div style="font-size:0.78rem;color:rgba(255,255,255,0.32);margin-top:0.2rem" id="skuMatchSub"></div>
+            </div>
+            <div style="display:flex;gap:0.5rem;align-items:center">
+                <button class="modal-close" style="position:relative;top:auto;right:auto" onclick="closeSkuMatchModal()">✕</button>
+            </div>
+        </div>
+        <div style="font-size:0.78rem;color:rgba(255,255,255,0.4);margin-bottom:1rem;">
+            Vorschläge basieren auf Wort- und Kategorie-Abgleich, kein exakter Namensvergleich. Nur angehakte Zeilen werden übernommen — nichts wird automatisch angelegt.
+        </div>
+        <div class="sold-table-wrap">
+            <table>
+                <thead><tr><th></th><th>Inventur-Produkt</th><th>Gefundener Shopify-Titel</th><th>SKU</th><th>Vertrauen</th></tr></thead>
+                <tbody id="skuMatchBody"></tbody>
+            </table>
+        </div>
+        <div class="modal-actions" style="margin-top:1.2rem;">
+            <button class="btn btn-secondary" onclick="closeSkuMatchModal()">Abbrechen</button>
+            <button class="btn btn-primary" onclick="applySkuMatches()">✅ Ausgewählte SKUs übernehmen</button>
+        </div>
+    </div>
+</div>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
@@ -1702,6 +1743,21 @@ window.closeHeaderMenu = function() {
 document.addEventListener('click', function(e) {
     const wrap = document.getElementById('headerMoreBtn')?.closest('.header-more-wrap');
     if (wrap && !wrap.contains(e.target)) closeHeaderMenu();
+});
+
+window.toggleInvMenu = function(name) {
+    const id = name==='csv' ? 'invMenuCsv' : 'invMenuExtras';
+    const other = name==='csv' ? 'invMenuExtras' : 'invMenuCsv';
+    document.getElementById(other)?.classList.remove('open');
+    document.getElementById(id)?.classList.toggle('open');
+};
+window.closeInvMenus = function() {
+    document.getElementById('invMenuCsv')?.classList.remove('open');
+    document.getElementById('invMenuExtras')?.classList.remove('open');
+};
+document.addEventListener('click', function(e) {
+    if (e.target.closest('.inv-actions .header-more-wrap')) return;
+    closeInvMenus();
 });
 
 // ==================== LOGIN ====================
@@ -1996,7 +2052,7 @@ async function renderTable(){
     const search=document.getElementById('searchBox').value.toLowerCase();
     const katF=document.getElementById('filterKategorie').value;
     const sort=document.getElementById('filterSortierung').value;
-    let filtered=data.filter(p=>(p.name.toLowerCase().includes(search)||(p.notiz||'').toLowerCase().includes(search))&&(!katF||p.kategorie===katF));
+    let filtered=data.filter(p=>(p.name.toLowerCase().includes(search)||(p.notiz||'').toLowerCase().includes(search)||(p.sku||'').toLowerCase().includes(search))&&(!katF||p.kategorie===katF));
     filtered.sort((a,b)=>{
         switch(sort){
             case 'name':return a.name.localeCompare(b.name);
@@ -2081,6 +2137,7 @@ window.openAddModal=function(){
     document.getElementById('fName').value=''; document.getElementById('fKategorie').value='Booster Pack';
     document.getElementById('fMenge').value=''; document.getElementById('fPreis').value='';
     document.getElementById('fDatum').value=new Date().toISOString().split('T')[0]; document.getElementById('fNotiz').value='';
+    document.getElementById('fSku').value='';
     document.getElementById('modalOverlay').classList.add('active');
     setTimeout(()=>document.getElementById('fName').focus(),100);
 };
@@ -2090,6 +2147,7 @@ window.openEditModal=async function(id){
     document.getElementById('fName').value=p.name; document.getElementById('fKategorie').value=p.kategorie;
     document.getElementById('fMenge').value=p.menge; document.getElementById('fPreis').value=p.preis;
     document.getElementById('fDatum').value=p.datum||''; document.getElementById('fNotiz').value=p.notiz||'';
+    document.getElementById('fSku').value=p.sku||'';
     document.getElementById('modalOverlay').classList.add('active');
 };
 window.closeModal=function(){document.getElementById('modalOverlay').classList.remove('active');};
@@ -2100,12 +2158,13 @@ window.saveProduct=async function(){
     const kategorie=document.getElementById('fKategorie').value;
     const datum=document.getElementById('fDatum').value;
     const notiz=document.getElementById('fNotiz').value.trim();
+    const sku=document.getElementById('fSku').value.trim();
     const data=await loadData();
     if(editingId){
         const idx=data.findIndex(x=>x.id===editingId);
-        if(idx!==-1){data[idx]={...data[idx],name,kategorie,menge,preis,datum,notiz,lastModified:new Date().toISOString()};showToast('✅ Aktualisiert!');}
+        if(idx!==-1){data[idx]={...data[idx],name,kategorie,menge,preis,datum,notiz,sku,lastModified:new Date().toISOString()};showToast('✅ Aktualisiert!');}
     } else {
-        data.push({id:Date.now().toString(),name,kategorie,menge,preis,datum,notiz,lastModified:new Date().toISOString()});
+        data.push({id:Date.now().toString(),name,kategorie,menge,preis,datum,notiz,sku,lastModified:new Date().toISOString()});
         showToast('✅ Produkt hinzugefügt!');
     }
     await saveData(data); closeModal(); await renderTable();
@@ -2227,10 +2286,10 @@ window.deleteSoldEntry=async function(id){const h=await loadSoldHistory();await 
 // ==================== EXPORT / IMPORT CSV ====================
 window.exportCSV=async function(){
     const data=await loadData(); if(data.length===0){showToast('⚠️ Keine Daten!');return;}
-    const h=['Nr','Produktname','Kategorie','Menge','EK Preis (CHF)','Lagerwert (CHF)','Kaufdatum','Notiz'];
-    const rows=data.map((p,i)=>[i+1,`"${(p.name||'').replace(/"/g,'""')}"`,p.kategorie,p.menge,Number(p.preis).toFixed(2),(Number(p.preis)*Number(p.menge)).toFixed(2),p.datum||'',`"${(p.notiz||'').replace(/"/g,'""')}"`]);
+    const h=['Nr','Produktname','Kategorie','Menge','EK Preis (CHF)','Lagerwert (CHF)','Kaufdatum','Notiz','SKU'];
+    const rows=data.map((p,i)=>[i+1,`"${(p.name||'').replace(/"/g,'""')}"`,p.kategorie,p.menge,Number(p.preis).toFixed(2),(Number(p.preis)*Number(p.menge)).toFixed(2),p.datum||'',`"${(p.notiz||'').replace(/"/g,'""')}"`,p.sku||'']);
     const tM=data.reduce((s,p)=>s+Number(p.menge),0); const tW=data.reduce((s,p)=>s+Number(p.preis)*Number(p.menge),0);
-    rows.push(['','TOTAL','',tM,'',tW.toFixed(2),'','']);
+    rows.push(['','TOTAL','',tM,'',tW.toFixed(2),'','','']);
     const csv=[h,...rows].map(r=>r.join(';')).join('\n');
     const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'});
     const url=URL.createObjectURL(blob); const a=document.createElement('a');
@@ -2254,9 +2313,10 @@ window.importCSV=function(ev){
                 const kat=c[2]?c[2].trim():'Andere';
                 const menge=parseInt(c[3])||0; const preis=parseFloat((c[4]||'').replace(',','.'))||0;
                 const datum=c[6]?c[6].trim():''; const notiz=c[7]?c[7].replace(/^"|"$/g,'').trim():'';
+                const sku=c[8]?c[8].trim():'';
                 const VK=['Booster Pack','Display','Tin','ETB','Blister','Promo','Andere'];
                 if(!name)continue;
-                imported.push({id:Date.now().toString()+'_'+i,name,kategorie:VK.includes(kat)?kat:'Andere',menge,preis,datum,notiz});
+                imported.push({id:Date.now().toString()+'_'+i,name,kategorie:VK.includes(kat)?kat:'Andere',menge,preis,datum,notiz,sku});
             }
             if(imported.length===0){showToast('⚠️ Keine Produkte gefunden!');return;}
             const ex=await loadData();
@@ -2276,6 +2336,149 @@ function parseCSVLine(line){
     for(let i=0;i<line.length;i++){const c=line[i];if(c==='"'){if(inQ&&line[i+1]==='"'){cur+='"';i++;}else{inQ=!inQ;}}else if(c===';'&&!inQ){cols.push(cur);cur='';}else{cur+=c;}}
     cols.push(cur); return cols;
 }
+
+// ==================== SHOPIFY SKU-ABGLEICH ====================
+// Robuster CSV-Parser (Komma-getrennt, RFC4180-artig), da der Shopify-Produktexport
+// mehrzeilige, in Anführungszeichen stehende Felder (z.B. HTML-Beschreibungen) enthält —
+// der einfache Zeilen-Split reicht dafür nicht aus.
+function parseFullCSV(text){
+    const rows=[]; let row=[]; let field=''; let inQ=false;
+    for(let i=0;i<text.length;i++){
+        const c=text[i];
+        if(inQ){
+            if(c==='"'){ if(text[i+1]==='"'){field+='"';i++;} else {inQ=false;} }
+            else field+=c;
+        } else {
+            if(c==='"') inQ=true;
+            else if(c===','){ row.push(field); field=''; }
+            else if(c==='\r'){ /* ignorieren, \n folgt */ }
+            else if(c==='\n'){ row.push(field); rows.push(row); row=[]; field=''; }
+            else field+=c;
+        }
+    }
+    if(field.length>0||row.length>0){ row.push(field); rows.push(row); }
+    return rows.filter(r=>r.length>1||r[0]!=='');
+}
+
+// Liest eine Shopify-Produktexport-CSV ein und schlägt SKU-Zuordnungen für bereits
+// existierende Inventur-Produkte vor (unscharfer Wort- + Kategorie-Abgleich, kein exakter
+// Namensvergleich nötig). Legt niemals neue Produkte an. Der Nutzer bestätigt jeden Treffer
+// vor dem Übernehmen in einer Vorschau.
+function normalizeProductName(str){
+    return (str||'')
+        .toLowerCase()
+        .replace(/pokémon|pokemon/g,' ')
+        .replace(/[^a-z0-9äöü]+/g,' ')
+        .replace(/\s+/g,' ')
+        .trim();
+}
+const SKU_CATEGORY_KEYWORDS=[
+    ['elite trainer box','ETB'],['etb','ETB'],
+    ['display','Display'],
+    ['booster bundle','Booster Pack'],['booster pack','Booster Pack'],['booster','Booster Pack'],
+    ['tin','Tin'],['blister','Blister'],['promo','Promo']
+];
+function inferKategorieFromTitle(title){
+    const t=(title||'').toLowerCase();
+    for(const [kw,kat] of SKU_CATEGORY_KEYWORDS){ if(t.includes(kw)) return kat; }
+    return null;
+}
+// Score 0–1: Anteil der Wörter aus dem Inventur-Produktnamen, die im Shopify-Titel vorkommen,
+// plus Bonus, wenn die aus dem Titel erkannte Kategorie zur hinterlegten Kategorie passt.
+function skuMatchScore(productName, productKategorie, csvTitle){
+    const pTokens=normalizeProductName(productName).split(' ').filter(w=>w.length>1);
+    if(pTokens.length===0)return 0;
+    const cNorm=normalizeProductName(csvTitle);
+    const found=pTokens.filter(w=>cNorm.includes(w)).length;
+    let score=found/pTokens.length;
+    if(productKategorie && inferKategorieFromTitle(csvTitle)===productKategorie) score+=0.15;
+    return Math.min(score,1);
+}
+
+let _skuMatchCandidates=[];
+window.importShopifySkus=function(ev){
+    const file=ev.target.files[0]; if(!file)return;
+    const reader=new FileReader();
+    reader.onload=async function(e){
+        try{
+            const text=e.target.result.replace(/^\uFEFF/,'');
+            const rows=parseFullCSV(text);
+            if(rows.length<2){showToast('⚠️ CSV leer oder ungültig!');ev.target.value='';return;}
+            const header=rows[0].map(h=>h.trim());
+            const titleIdx=header.indexOf('Title');
+            const skuIdx=header.indexOf('Variant SKU');
+            if(titleIdx===-1||skuIdx===-1){showToast('⚠️ Spalten "Title"/"Variant SKU" nicht gefunden — ist das ein Shopify-Produktexport?');ev.target.value='';return;}
+
+            const csvRows=[];
+            for(let i=1;i<rows.length;i++){
+                const r=rows[i];
+                const title=(r[titleIdx]||'').trim();
+                if(!title)continue;
+                const sku=(r[skuIdx]||'').trim().replace(/^'/,'');
+                if(sku) csvRows.push({title,sku});
+            }
+            if(csvRows.length===0){showToast('⚠️ Keine SKUs in der CSV gefunden!');ev.target.value='';return;}
+
+            const data=await loadData();
+            if(data.length===0){showToast('⚠️ Keine Produkte in der Inventur vorhanden!');ev.target.value='';return;}
+
+            _skuMatchCandidates=data.map(p=>{
+                let best=null, bestScore=0;
+                csvRows.forEach(c=>{
+                    const s=skuMatchScore(p.name,p.kategorie,c.title);
+                    if(s>bestScore){bestScore=s;best=c;}
+                });
+                return {produktId:p.id,name:p.name,kategorie:p.kategorie,aktuelleSku:p.sku||'',vorschlagTitle:best?best.title:null,vorschlagSku:best?best.sku:null,score:bestScore};
+            }).filter(m=>m.vorschlagSku && m.score>=0.4 && m.vorschlagSku!==m.aktuelleSku)
+              .sort((a,b)=>b.score-a.score);
+
+            renderSkuMatchModal();
+            document.getElementById('skuMatchModalOverlay').classList.add('active');
+        }catch(err){console.error(err);showToast('❌ Fehler beim Shopify-SKU-Abgleich!');}
+        ev.target.value='';
+    };
+    reader.readAsText(file,'UTF-8');
+};
+
+function renderSkuMatchModal(){
+    const body=document.getElementById('skuMatchBody');
+    const sub=document.getElementById('skuMatchSub');
+    if(!body)return;
+    sub.textContent=`${_skuMatchCandidates.length} Vorschlag/-läge gefunden — bitte prüfen und bestätigen`;
+    if(_skuMatchCandidates.length===0){
+        body.innerHTML=`<tr><td colspan="6"><div class="empty-state" style="padding:2rem"><div class="empty-icon">🤷</div><p>Keine passenden Vorschläge gefunden (oder alle SKUs bereits aktuell).</p></div></td></tr>`;
+        return;
+    }
+    body.innerHTML=_skuMatchCandidates.map((m,i)=>{
+        const pct=Math.round(m.score*100);
+        const conf=m.score>=0.85?['🟢 hoch','#34d399']:m.score>=0.6?['🟡 mittel','#fbbf24']:['🔴 niedrig','#f87171'];
+        const defaultChecked=m.score>=0.85?'checked':'';
+        return `<tr>
+            <td><input type="checkbox" id="skuMatchChk-${i}" ${defaultChecked} style="width:16px;height:16px;cursor:pointer;accent-color:#22c55e;"></td>
+            <td class="td-name">${escapeHtml(m.name)}<div class="td-date">${escapeHtml(m.kategorie)}</div></td>
+            <td style="font-size:0.8rem;color:rgba(255,255,255,0.6)">${escapeHtml(m.vorschlagTitle)}</td>
+            <td><span class="order-tag" style="color:#93c5fd;">${escapeHtml(m.vorschlagSku)}</span></td>
+            <td style="font-size:0.76rem;color:${conf[1]}">${conf[0]} (${pct}%)</td>
+        </tr>`;
+    }).join('');
+}
+window.closeSkuMatchModal=function(){document.getElementById('skuMatchModalOverlay').classList.remove('active');_skuMatchCandidates=[];};
+window.applySkuMatches=async function(){
+    const data=await loadData();
+    let updated=0;
+    _skuMatchCandidates.forEach((m,i)=>{
+        const chk=document.getElementById('skuMatchChk-'+i);
+        if(!chk||!chk.checked)return;
+        const idx=data.findIndex(p=>p.id===m.produktId);
+        if(idx===-1)return;
+        data[idx].sku=m.vorschlagSku;
+        data[idx].lastModified=new Date().toISOString();
+        updated++;
+    });
+    if(updated>0){ await saveData(data); await renderTable(); }
+    closeSkuMatchModal();
+    showToast(updated>0?`✅ ${updated} SKU(s) übernommen`:'ℹ️ Keine SKUs ausgewählt');
+};
 
 // ==================== CHART ====================
 let chartInstance=null; let currentChartMode='wert';
@@ -2333,10 +2536,10 @@ window.openEmailModal=async function(){
 window.closeEmailModal=function(){document.getElementById('emailModalOverlay').classList.remove('active');};
 async function generateCSVString(){
     const data=await loadData();
-    const h=['Nr','Produktname','Kategorie','Menge','EK Preis (CHF)','Lagerwert (CHF)','Kaufdatum','Notiz'];
-    const rows=data.map((p,i)=>[i+1,`"${(p.name||'').replace(/"/g,'""')}"`,p.kategorie,p.menge,Number(p.preis).toFixed(2),(Number(p.preis)*Number(p.menge)).toFixed(2),p.datum||'',`"${(p.notiz||'').replace(/"/g,'""')}"`]);
+    const h=['Nr','Produktname','Kategorie','Menge','EK Preis (CHF)','Lagerwert (CHF)','Kaufdatum','Notiz','SKU'];
+    const rows=data.map((p,i)=>[i+1,`"${(p.name||'').replace(/"/g,'""')}"`,p.kategorie,p.menge,Number(p.preis).toFixed(2),(Number(p.preis)*Number(p.menge)).toFixed(2),p.datum||'',`"${(p.notiz||'').replace(/"/g,'""')}"`,p.sku||'']);
     const tM=data.reduce((s,p)=>s+Number(p.menge),0); const tW=data.reduce((s,p)=>s+Number(p.preis)*Number(p.menge),0);
-    rows.push(['','TOTAL','',tM,'',tW.toFixed(2),'','']);
+    rows.push(['','TOTAL','',tM,'',tW.toFixed(2),'','','']);
     return [h,...rows].map(r=>r.join(';')).join('\n');
 }
 window.sendEmailWithCSV=async function(){
@@ -3606,6 +3809,7 @@ document.getElementById('soldModalOverlay').addEventListener('click',function(e)
 document.getElementById('sellModalOverlay').addEventListener('click',function(e){if(e.target===this)closeSellModal();});
 document.getElementById('emailModalOverlay').addEventListener('click',function(e){if(e.target===this)closeEmailModal();});
 document.getElementById('chartModalOverlay').addEventListener('click',function(e){if(e.target===this)closeChartModal();});
+document.getElementById('skuMatchModalOverlay').addEventListener('click',function(e){if(e.target===this)closeSkuMatchModal();});
 document.getElementById('buchModalOverlay').addEventListener('click',function(e){if(e.target===this)closeBuchModal();});
 document.getElementById('taskModalOverlay').addEventListener('click',function(e){if(e.target===this)closeTaskModal();});
 document.getElementById('searchBox').addEventListener('input',renderTable);
