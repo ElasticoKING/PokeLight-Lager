@@ -2383,16 +2383,26 @@ function inferKategorieFromTitle(title){
     for(const [kw,kat] of SKU_CATEGORY_KEYWORDS){ if(t.includes(kw)) return kat; }
     return null;
 }
-// Score 0–1: Anteil der Wörter aus dem Inventur-Produktnamen, die im Shopify-Titel vorkommen,
-// plus Bonus, wenn die aus dem Titel erkannte Kategorie zur hinterlegten Kategorie passt.
+// Score 0–1 nach Dice-Koeffizient: bestraft nicht nur fehlende, sondern auch überzählige
+// Wörter im Shopify-Titel (z.B. "... Sleeved Booster" vs. "... Display" bei sonst gleichem
+// Produktnamen) — plus deutlicher Bonus bei erkannter Kategorie-Übereinstimmung und
+// deutlicher MALUS bei erkanntem Kategorie-Widerspruch (z.B. Inventur sagt "Display",
+// Titel enthält aber "Elite Trainer Box"). Gibt zusätzlich zurück, ob ein Widerspruch vorliegt,
+// damit solche Treffer nie automatisch vorausgewählt werden.
 function skuMatchScore(productName, productKategorie, csvTitle){
     const pTokens=normalizeProductName(productName).split(' ').filter(w=>w.length>1);
-    if(pTokens.length===0)return 0;
-    const cNorm=normalizeProductName(csvTitle);
-    const found=pTokens.filter(w=>cNorm.includes(w)).length;
-    let score=found/pTokens.length;
-    if(productKategorie && inferKategorieFromTitle(csvTitle)===productKategorie) score+=0.15;
-    return Math.min(score,1);
+    if(pTokens.length===0)return {score:0,mismatch:false};
+    const cTokens=normalizeProductName(csvTitle).split(' ').filter(w=>w.length>1);
+    const cSet=new Set(cTokens);
+    const intersection=pTokens.filter(w=>cSet.has(w)).length;
+    const denom=pTokens.length+cTokens.length;
+    let score=denom>0?(2*intersection)/denom:0;
+    const inferredKat=inferKategorieFromTitle(csvTitle);
+    const match=!!(productKategorie&&inferredKat&&inferredKat===productKategorie);
+    const mismatch=!!(productKategorie&&inferredKat&&inferredKat!==productKategorie);
+    if(match) score+=0.2;
+    if(mismatch) score-=0.35;
+    return {score:Math.max(0,Math.min(score,1)),mismatch};
 }
 
 let _skuMatchCandidates=[];
@@ -2423,13 +2433,13 @@ window.importShopifySkus=function(ev){
             if(data.length===0){showToast('⚠️ Keine Produkte in der Inventur vorhanden!');ev.target.value='';return;}
 
             _skuMatchCandidates=data.map(p=>{
-                let best=null, bestScore=0;
+                let best=null, bestScore=0, bestMismatch=false;
                 csvRows.forEach(c=>{
-                    const s=skuMatchScore(p.name,p.kategorie,c.title);
-                    if(s>bestScore){bestScore=s;best=c;}
+                    const r=skuMatchScore(p.name,p.kategorie,c.title);
+                    if(r.score>bestScore){bestScore=r.score;best=c;bestMismatch=r.mismatch;}
                 });
-                return {produktId:p.id,name:p.name,kategorie:p.kategorie,aktuelleSku:p.sku||'',vorschlagTitle:best?best.title:null,vorschlagSku:best?best.sku:null,score:bestScore};
-            }).filter(m=>m.vorschlagSku && m.score>=0.4 && m.vorschlagSku!==m.aktuelleSku)
+                return {produktId:p.id,name:p.name,kategorie:p.kategorie,aktuelleSku:p.sku||'',vorschlagTitle:best?best.title:null,vorschlagSku:best?best.sku:null,score:bestScore,mismatch:bestMismatch};
+            }).filter(m=>m.vorschlagSku && m.score>=0.3 && m.vorschlagSku!==m.aktuelleSku)
               .sort((a,b)=>b.score-a.score);
 
             renderSkuMatchModal();
@@ -2451,9 +2461,10 @@ function renderSkuMatchModal(){
     }
     body.innerHTML=_skuMatchCandidates.map((m,i)=>{
         const pct=Math.round(m.score*100);
-        const conf=m.score>=0.85?['🟢 hoch','#34d399']:m.score>=0.6?['🟡 mittel','#fbbf24']:['🔴 niedrig','#f87171'];
-        const defaultChecked=m.score>=0.85?'checked':'';
-        return `<tr>
+        const conf=m.mismatch?['⚠️ Kategorie weicht ab','#f87171']:m.score>=0.85?['🟢 hoch','#34d399']:m.score>=0.6?['🟡 mittel','#fbbf24']:['🔴 niedrig','#f87171'];
+        const defaultChecked=(!m.mismatch&&m.score>=0.85)?'checked':'';
+        const rowStyle=m.mismatch?'background:rgba(220,38,38,0.06);':'';
+        return `<tr style="${rowStyle}">
             <td><input type="checkbox" id="skuMatchChk-${i}" ${defaultChecked} style="width:16px;height:16px;cursor:pointer;accent-color:#22c55e;"></td>
             <td class="td-name">${escapeHtml(m.name)}<div class="td-date">${escapeHtml(m.kategorie)}</div></td>
             <td style="font-size:0.8rem;color:rgba(255,255,255,0.6)">${escapeHtml(m.vorschlagTitle)}</td>
