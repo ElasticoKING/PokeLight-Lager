@@ -2082,7 +2082,7 @@ async function renderTable(){
             <td style="color:rgba(255,255,255,0.22);font-size:0.72rem">${i+1}</td>
             <td>
                 <div class="tooltip-wrap">
-                    <div class="td-name">${escapeHtml(p.name)}</div>
+                    <div class="td-name">${!p.sku?'<span style="color:#f87171;margin-right:4px;" title="Keine SKU hinterlegt">⚠️</span>':''}${escapeHtml(p.name)}</div>
                     <div class="tooltip-box">🕐 Zuletzt geändert: ${lm}</div>
                 </div>
                 <div class="td-date">${df}</div>
@@ -2107,7 +2107,7 @@ async function renderTable(){
             return `<div class="inv-card">
                 <div class="inv-card-top">
                     <div>
-                        <div class="inv-card-name">${escapeHtml(p.name)}</div>
+                        <div class="inv-card-name">${!p.sku?'<span style="color:#f87171;margin-right:4px;" title="Keine SKU hinterlegt">⚠️</span>':''}${escapeHtml(p.name)}</div>
                         <span class="badge ${bc}" style="margin-top:4px;display:inline-block;">${escapeHtml(p.kategorie)}</span>
                     </div>
                     <div>
