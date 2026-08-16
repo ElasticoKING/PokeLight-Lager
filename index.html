@@ -2079,13 +2079,13 @@ window.restoreFullBackup=function(ev){
                 window._gastBuch=payload.buchhaltung;
             }else{
                 const r=doc(db,'users',getKey());
-                await setDoc(r,payload); // komplett ersetzen, keine alten Felder behalten
+                await setDoc(r,payload,{merge:true}); // Inventur/Verkauf/Chart/Buchhaltung ersetzen, andere Felder (z.B. Protokoll) bleiben erhalten
             }
             await renderTable();
             populateBuchYear();
             await renderDocuments();
             showToast(`✅ Backup wiederhergestellt! (${anz} Einträge)`);
-            logActivity('Backup wiederhergestellt',`Datei "${file.name}" (${anz} Einträge, erstellt am ${backup.erstelltAm?new Date(backup.erstelltAm).toLocaleString('de-CH'):'unbekannt'})`);
+            await logActivity('Backup wiederhergestellt',`Datei "${file.name}" (${anz} Einträge, erstellt am ${backup.erstelltAm?new Date(backup.erstelltAm).toLocaleString('de-CH'):'unbekannt'})`);
         }catch(err){
             console.error(err);
             showToast('❌ Wiederherstellen fehlgeschlagen!');
@@ -2224,28 +2224,30 @@ window.saveProduct=async function(){
     const notiz=document.getElementById('fNotiz').value.trim();
     const sku=document.getElementById('fSku').value.trim();
     const data=await loadData();
+    let logAktion=null, logDetails=null;
     if(editingId){
         const idx=data.findIndex(x=>x.id===editingId);
         if(idx!==-1){
             const alt=data[idx];
-            if(Number(alt.menge)!==menge) logActivity('Menge geändert',`${name}: ${alt.menge} → ${menge}`);
-            else if(alt.name!==name||Number(alt.preis)!==preis||alt.kategorie!==kategorie) logActivity('Produkt bearbeitet',name);
+            if(Number(alt.menge)!==menge){ logAktion='Menge geändert'; logDetails=`${name}: ${alt.menge} → ${menge}`; }
+            else if(alt.name!==name||Number(alt.preis)!==preis||alt.kategorie!==kategorie){ logAktion='Produkt bearbeitet'; logDetails=name; }
             data[idx]={...alt,name,kategorie,menge,preis,datum,notiz,sku,lastModified:new Date().toISOString()};
             showToast('✅ Aktualisiert!');
         }
     } else {
         data.push({id:Date.now().toString(),name,kategorie,menge,preis,datum,notiz,sku,lastModified:new Date().toISOString()});
-        logActivity('Produkt hinzugefügt',`${name} (Menge ${menge})`);
+        logAktion='Produkt hinzugefügt'; logDetails=`${name} (Menge ${menge})`;
         showToast('✅ Produkt hinzugefügt!');
     }
     await saveData(data); closeModal(); await renderTable();
+    if(logAktion) await logActivity(logAktion,logDetails);
 };
 window.deleteProduct=async function(id){
     if(!confirm('Produkt wirklich löschen?'))return;
     const data=await loadData();
     const p=data.find(x=>x.id===id);
     await saveData(data.filter(x=>x.id!==id)); await renderTable(); showToast('🗑️ Gelöscht');
-    if(p) logActivity('Produkt gelöscht',`${p.name} (Menge ${p.menge}, EK CHF ${Number(p.preis).toFixed(2)})`);
+    if(p) await logActivity('Produkt gelöscht',`${p.name} (Menge ${p.menge}, EK CHF ${Number(p.preis).toFixed(2)})`);
 };
 
 // ==================== SELL ====================
@@ -2312,8 +2314,9 @@ window.confirmSell=async function(){
     const gewinn=vkPreis>0?(vkPreis-p.preis)*menge:0;
     const gewinnTxt=vkPreis>0?` | Gewinn: ${gewinn>=0?'+':''}CHF ${gewinn.toFixed(2)}`:'';
     showToast(`✅ ${menge}× ${p.name} verkauft${gewinnTxt}`);
-    logActivity('Verkauf',`${menge}× ${p.name}${bestellnummer?' (Bestell-Nr. '+bestellnummer+')':''}`);
-    await saveData(data); closeSellModal(); await renderTable(); saveChartSnapshot();
+    await saveData(data); closeSellModal(); await renderTable();
+    await logActivity('Verkauf',`${menge}× ${p.name}${bestellnummer?' (Bestell-Nr. '+bestellnummer+')':''}`);
+    saveChartSnapshot();
 };
 document.getElementById('sellMenge').addEventListener('input',async function(){
     const data=await loadData();const p=data.find(x=>x.id===sellingId);if(!p)return;
@@ -2397,9 +2400,9 @@ window.importCSV=function(ev){
             const ex=await loadData();
             if(ex.length>0){
                 const ch=confirm(`${imported.length} Produkte.\nOK = Ersetzen, Abbrechen = Hinzufügen`);
-                if(ch){await saveData(imported);showToast(`✅ ${imported.length} Produkte importiert!`);logActivity('CSV-Import (ersetzt)',`${ex.length} alte → ${imported.length} neue Produkte, Datei "${file.name}"`);}
-                else{const exN=ex.map(p=>p.name.toLowerCase());const nw=imported.filter(p=>!exN.includes(p.name.toLowerCase()));await saveData([...ex,...nw]);showToast(`✅ ${nw.length} neue Produkte hinzugefügt!`);logActivity('CSV-Import (ergänzt)',`${nw.length} neue Produkte, Datei "${file.name}"`);}
-            }else{await saveData(imported);showToast(`✅ ${imported.length} Produkte importiert!`);logActivity('CSV-Import',`${imported.length} Produkte, Datei "${file.name}"`);}
+                if(ch){await saveData(imported);showToast(`✅ ${imported.length} Produkte importiert!`);await logActivity('CSV-Import (ersetzt)',`${ex.length} alte → ${imported.length} neue Produkte, Datei "${file.name}"`);}
+                else{const exN=ex.map(p=>p.name.toLowerCase());const nw=imported.filter(p=>!exN.includes(p.name.toLowerCase()));await saveData([...ex,...nw]);showToast(`✅ ${nw.length} neue Produkte hinzugefügt!`);await logActivity('CSV-Import (ergänzt)',`${nw.length} neue Produkte, Datei "${file.name}"`);}
+            }else{await saveData(imported);showToast(`✅ ${imported.length} Produkte importiert!`);await logActivity('CSV-Import',`${imported.length} Produkte, Datei "${file.name}"`);}
             await renderTable();
         }catch(err){console.error(err);showToast('❌ Fehler beim Import!');}
         ev.target.value='';
@@ -2561,7 +2564,7 @@ window.applySkuMatches=async function(){
         data[idx].lastModified=new Date().toISOString();
         updated++;
     });
-    if(updated>0){ await saveData(data); await renderTable(); logActivity('Shopify-SKU-Abgleich',`${updated} SKU(s) übernommen`); }
+    if(updated>0){ await saveData(data); await renderTable(); await logActivity('Shopify-SKU-Abgleich',`${updated} SKU(s) übernommen`); }
     closeSkuMatchModal();
     showToast(updated>0?`✅ ${updated} SKU(s) übernommen`:'ℹ️ Keine SKUs ausgewählt');
 };
@@ -3492,7 +3495,6 @@ window.abschliessenZaehlung=async function(){
         }
     }
     await saveData(inventur);
-    logActivity('Zählung abgeschlossen',`${korrigiert} Produkt(e) korrigiert (Mindermenge CHF ${chf(s.minderWert)}, Mehrmenge CHF ${chf(s.mehrWert)})`);
 
     const verlauf=await loadZaehlungVerlauf();
     verlauf.unshift({
@@ -3505,6 +3507,7 @@ window.abschliessenZaehlung=async function(){
     });
     await saveZaehlungVerlauf(verlauf);
     await saveAktuelleZaehlung(null);
+    await logActivity('Zählung abgeschlossen',`${korrigiert} Produkt(e) korrigiert (Mindermenge CHF ${chf(s.minderWert)}, Mehrmenge CHF ${chf(s.mehrWert)})`);
 
     await renderTable();
     await renderZaehlung();
