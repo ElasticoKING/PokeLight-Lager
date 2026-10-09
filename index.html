@@ -554,6 +554,7 @@
         .buch-stat.aus  { --c: linear-gradient(90deg,#dc2626,#ef4444); }
         .buch-stat.gew  { --c: linear-gradient(90deg,#6a11ff,#2575fc); }
         .buch-stat.anz  { --c: linear-gradient(90deg,#f59e0b,#fbbf24); }
+        .buch-stat.wek  { --c: linear-gradient(90deg,#64748b,#94a3b8); }
         .buch-stat-label { font-size: 0.68rem; letter-spacing: 1.6px; text-transform: uppercase; color: rgba(255,255,255,0.35); margin-bottom: 0.35rem; }
         .buch-stat-val { font-size: 1.55rem; font-weight: 700; }
         .buch-stat-val.green { color: #34d399; }
@@ -1228,6 +1229,12 @@
                         <div class="buch-stat-label">Buchungen</div>
                         <div class="buch-stat-val gold" id="buchAnz">0</div>
                     </div>
+                    <div class="buch-stat wek" title="Geldabfluss für Ware. Zählt nicht zum Gewinn — der Aufwand entsteht erst beim Verkauf (Wareneinsatz).">
+                        <div class="buch-stat-icon">📦</div>
+                        <div class="buch-stat-label">Wareneinkauf</div>
+                        <div class="buch-stat-val" id="buchWek" style="color:rgba(255,255,255,0.75)">CHF 0.00</div>
+                        <div style="font-size:0.64rem;color:rgba(255,255,255,0.3);margin-top:2px;">nicht gewinnwirksam</div>
+                    </div>
                 </div>
 
                 <!-- Monatsübersicht -->
@@ -1248,6 +1255,7 @@
                     <select class="buch-filter-select" id="buchFilterKat" onchange="renderBuchTable()">
                         <option value="">Alle Kategorien</option>
                         <option value="Einkauf">Einkauf</option>
+                        <option value="Wareneinkauf">Wareneinkauf</option>
                         <option value="Verkauf">Verkauf</option>
                         <option value="Versand">Versand</option>
                         <option value="Verpackung">Verpackung</option>
@@ -1468,6 +1476,7 @@
                 <select class="form-select" id="bKategorie">
                     <option value="Verkauf">Verkauf</option>
                     <option value="Einkauf">Einkauf</option>
+                    <option value="Wareneinkauf">Wareneinkauf (nicht gewinnwirksam)</option>
                     <option value="Versand">Versand</option>
                     <option value="Verpackung">Verpackung</option>
                     <option value="Gebühren">Gebühren</option>
@@ -2690,11 +2699,13 @@ async function renderBuchhaltung(){
     document.getElementById('jahresTitel').textContent=`Jahresabschluss ${year}`;
 
     const ein=yearData.filter(e=>e.typ==='einnahme').reduce((s,e)=>s+Number(e.betrag),0);
-    const aus=yearData.filter(e=>e.typ==='ausgabe').reduce((s,e)=>s+Number(e.betrag),0);
+    const aus=yearData.filter(e=>e.typ==='ausgabe'&&!istWareneinkauf(e)).reduce((s,e)=>s+Number(e.betrag),0);
+    const wek=yearData.filter(e=>e.typ==='ausgabe'&&istWareneinkauf(e)).reduce((s,e)=>s+Number(e.betrag),0);
     const gew=ein-aus;
 
     document.getElementById('buchEin').textContent='CHF '+chf(ein);
     document.getElementById('buchAus').textContent='CHF '+chf(aus);
+    document.getElementById('buchWek').textContent='CHF '+chf(wek);
     document.getElementById('buchGew').textContent=(gew>=0?'+':'')+'CHF '+chf(Math.abs(gew));
     document.getElementById('buchGew').style.color=gew>0?'#34d399':gew<0?'#f87171':'#a78bff';
     document.getElementById('buchAnz').textContent=yearData.length;
@@ -2708,7 +2719,7 @@ async function renderBuchhaltung(){
     mg.innerHTML=MONATE.map((m,i)=>{
         const md=yearData.filter(e=>new Date(e.datum).getMonth()===i);
         const me=md.filter(e=>e.typ==='einnahme').reduce((s,e)=>s+Number(e.betrag),0);
-        const ma=md.filter(e=>e.typ==='ausgabe').reduce((s,e)=>s+Number(e.betrag),0);
+        const ma=md.filter(e=>e.typ==='ausgabe'&&!istWareneinkauf(e)).reduce((s,e)=>s+Number(e.betrag),0);
         const mg2=me-ma;
         const cl=mg2>0?'pos':mg2<0?'neg':'zero';
         return `<div class="month-card" onclick="filterByMonth(${i+1})">
@@ -2767,8 +2778,9 @@ async function renderBuchTable(){
         if(isStart){grpShade=!grpShade;prevGroup=gk;}                       // bei neuer Gruppe Schattierung umschalten
         const rowCls=((grpShade?'grp-shade':'')+(isStart?' grp-start':'')).trim();
         const df=new Date(e.datum).toLocaleDateString('de-CH');
-        const typ=e.typ==='einnahme'?'<span class="type-ein">+ Einnahme</span>':'<span class="type-aus">− Ausgabe</span>';
-        const betragColor=e.typ==='einnahme'?'#4ade80':'#f87171';
+        const wek=istWareneinkauf(e);
+        const typ=e.typ==='einnahme'?'<span class="type-ein">+ Einnahme</span>':(wek?'<span class="type-aus" style="background:rgba(148,163,184,0.14);color:#cbd5e1;" title="Nicht gewinnwirksam">📦 Wareneinkauf</span>':'<span class="type-aus">− Ausgabe</span>');
+        const betragColor=e.typ==='einnahme'?'#4ade80':(wek?'#94a3b8':'#f87171');
         return `<tr class="${rowCls}">
             <td style="color:rgba(255,255,255,0.22);font-size:0.72rem">${i+1}</td>
             <td style="font-size:0.8rem;color:rgba(255,255,255,0.5)">${df}</td>
@@ -2881,7 +2893,9 @@ window.exportBuchPDF = async function() {
     const firma  = 'PokeLight KlG';
     const heute  = new Date().toLocaleDateString('de-CH');
     const einnahmen = yearData.filter(e=>e.typ==='einnahme').sort((a,b)=>a.datum.localeCompare(b.datum));
-    const ausgaben  = yearData.filter(e=>e.typ==='ausgabe').sort((a,b)=>a.datum.localeCompare(b.datum));
+    const ausgaben  = yearData.filter(e=>e.typ==='ausgabe'&&!istWareneinkauf(e)).sort((a,b)=>a.datum.localeCompare(b.datum));
+    const wareneinkaufListe = yearData.filter(e=>e.typ==='ausgabe'&&istWareneinkauf(e));
+    const totalWek  = wareneinkaufListe.reduce((s,e)=>s+Number(e.betrag),0);   // nicht gewinnwirksam
     const totalEin  = einnahmen.reduce((s,e)=>s+Number(e.betrag),0);
     const totalAus  = ausgaben.reduce((s,e)=>s+Number(e.betrag),0);
     const gewinn    = totalEin - totalAus;
@@ -3004,7 +3018,7 @@ window.exportBuchPDF = async function() {
             if (y > PH - 55) { doc.addPage(); y = MT; }
             const monatEntries = yearData.filter(e=>new Date(e.datum).getMonth()===i).sort((a,b)=>a.datum.localeCompare(b.datum));
             const monatEin = monatEntries.filter(e=>e.typ==='einnahme').reduce((s,e)=>s+Number(e.betrag),0);
-            const monatAus = monatEntries.filter(e=>e.typ==='ausgabe').reduce((s,e)=>s+Number(e.betrag),0);
+            const monatAus = monatEntries.filter(e=>e.typ==='ausgabe'&&!istWareneinkauf(e)).reduce((s,e)=>s+Number(e.betrag),0);
 
             doc.setFontSize(9.5); doc.setFont('helvetica','bold'); doc.setTextColor(17,24,39);
             doc.text(`${m} ${year}`, ML, y+3.5);
@@ -3014,7 +3028,7 @@ window.exportBuchPDF = async function() {
 
             doc.autoTable({
                 head: [['Datum','Beschreibung','Kategorie','Typ','Betrag']],
-                body: monatEntries.map(e=>[fmtDate(e.datum), beschrZelle(e), e.kategorie, e.typ==='einnahme'?'Einnahme':'Ausgabe', (e.typ==='einnahme'?'+ ':'- ')+Number(e.betrag).toFixed(2)]),
+                body: monatEntries.map(e=>[fmtDate(e.datum), beschrZelle(e), e.kategorie, e.typ==='einnahme'?'Einnahme':(istWareneinkauf(e)?'Wareneinkauf*':'Ausgabe'), (e.typ==='einnahme'?'+ ':'- ')+Number(e.betrag).toFixed(2)]),
                 theme: 'plain',
                 headStyles: { fillColor:[243,244,246], textColor:[80,80,80], fontStyle:'bold', fontSize:7.3, cellPadding:3 },
                 bodyStyles: { fontSize:8, cellPadding:{top:3.5,bottom:3.5,left:4,right:4}, textColor:[55,65,81] },
@@ -3024,8 +3038,9 @@ window.exportBuchPDF = async function() {
                 startY:y, margin:{left:ML,right:MR},
                 didParseCell: d => {
                     if (d.section==='body' && d.column.index===4) {
-                        const isEin = monatEntries[d.row.index]?.typ==='einnahme';
-                        d.cell.styles.textColor = isEin ? [22,163,74] : [220,38,38];
+                        const eRow = monatEntries[d.row.index];
+                        const isEin = eRow?.typ==='einnahme';
+                        d.cell.styles.textColor = isEin ? [22,163,74] : (istWareneinkauf(eRow) ? [107,114,128] : [220,38,38]);
                     }
                 }
             });
@@ -3109,9 +3124,10 @@ window.exportBuchPDF = async function() {
         startY:y, margin:{left:ML,right:MR},
         body:[
             ['Gesamte Einnahmen (Verkäufe)',                         fmtChf(totalEin)],
-            ['Gesamte Ausgaben (Einkäufe)',                          fmtChf(totalAus)],
+            ['Gesamte Ausgaben (Wareneinsatz & Kosten)',             fmtChf(totalAus)],
             ['Jahresgewinn / -verlust',                              `${gKSign} ${fmtChf(gewinnKorrigiert)}`],
             [lagerLabel,                              fmtChf(lagerWert)],
+            ...(totalWek>0 ? [['Wareneinkauf (nicht gewinnwirksam)*',  fmtChf(totalWek)]] : []),
         ],
         theme:'plain',
         bodyStyles: { fontSize:9, cellPadding:{top:5,bottom:5,left:6,right:6}, textColor:[55,65,81] },
@@ -3126,6 +3142,7 @@ window.exportBuchPDF = async function() {
                 if(d.row.index===2&&d.column.index===0){ d.cell.styles.fontStyle='bold'; d.cell.styles.textColor=[17,24,39]; }
                 if(d.row.index===3) d.cell.styles.textColor=[107,114,128];
                 if(d.row.index===3&&d.column.index===0) d.cell.styles.fontStyle='italic';
+                if(d.row.index===4){ d.cell.styles.textColor=[107,114,128]; if(d.column.index===0) d.cell.styles.fontStyle='italic'; }
             }
         }
     });
@@ -3145,9 +3162,10 @@ window.exportBuchPDF = async function() {
             ['Inhaber / Gesellschafter',                              user],
             ['Geschäftsjahr',                                         String(year)],
             ['Einnahmen (Verkäufe)',                                  fmtChf(totalEin)],
-            ['Ausgaben (Einkäufe)',                                   fmtChf(totalAus)],
+            ['Ausgaben (Wareneinsatz & Kosten)',                      fmtChf(totalAus)],
             ['Persönlicher Jahresgewinn',                             `${gKSign} ${fmtChf(gewinnKorrigiert)}`],
             [lagerLabel,                              fmtChf(lagerWert)],
+            ...(totalWek>0 ? [['Wareneinkauf (nicht gewinnwirksam)*',  fmtChf(totalWek)]] : []),
         ],
         theme:'plain',
         bodyStyles: { fontSize:9, cellPadding:{top:5,bottom:5,left:6,right:6}, textColor:[55,65,81] },
@@ -3162,10 +3180,16 @@ window.exportBuchPDF = async function() {
                 if(d.row.index===5&&d.column.index===0){ d.cell.styles.fontStyle='bold'; d.cell.styles.textColor=[17,24,39]; }
                 if(d.row.index===6) d.cell.styles.textColor=[107,114,128];
                 if(d.row.index===6&&d.column.index===0) d.cell.styles.fontStyle='italic';
+                if(d.row.index===7){ d.cell.styles.textColor=[107,114,128]; if(d.column.index===0) d.cell.styles.fontStyle='italic'; }
             }
         }
     });
     y = doc.lastAutoTable.finalY + 5;
+    if (totalWek>0) {
+        doc.setFontSize(7); doc.setFont('helvetica','italic'); doc.setTextColor(120,120,120);
+        doc.text('* Wareneinkauf = Geldabfluss für Ware. Nicht im Gewinn enthalten: der Aufwand wird erst beim Verkauf als Wareneinsatz gebucht; nicht verkaufte Ware steht im Lagerbestand.', ML, y+2, { maxWidth: CW });
+        y += 8;
+    }
 
     // ================================================================
     // FOOTER — jede Seite
@@ -3204,7 +3228,7 @@ async function renderDashboard(){
     const buch=await loadBuchData();
     const now=new Date();
     const monatEintraege=buch.filter(e=>{const d=new Date(e.datum);return d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear();});
-    const monatGewinn=monatEintraege.filter(e=>e.typ==='einnahme').reduce((s,e)=>s+Number(e.betrag),0) - monatEintraege.filter(e=>e.typ==='ausgabe').reduce((s,e)=>s+Number(e.betrag),0);
+    const monatGewinn=monatEintraege.filter(e=>e.typ==='einnahme').reduce((s,e)=>s+Number(e.betrag),0) - monatEintraege.filter(e=>e.typ==='ausgabe'&&!istWareneinkauf(e)).reduce((s,e)=>s+Number(e.betrag),0);
 
     const tasks=await loadTasks();
     const offeneTasks=tasks.filter(t=>!t.done);
@@ -3289,7 +3313,7 @@ async function renderDashboard(){
         const d=new Date(e.datum);
         if(d.getFullYear()!==now.getFullYear())return;
         if(e.typ==='einnahme') monthlyRevenue[d.getMonth()]+=Number(e.betrag)||0;
-        else if(e.typ==='ausgabe') monthlyAusgaben[d.getMonth()]+=Number(e.betrag)||0;
+        else if(e.typ==='ausgabe'&&!istWareneinkauf(e)) monthlyAusgaben[d.getMonth()]+=Number(e.betrag)||0;
     });
     const monthlyProfit=monthlyRevenue.map((v,i)=>v-monthlyAusgaben[i]);
     const revCanvas=document.getElementById('dashRevenueChart');
@@ -3900,6 +3924,10 @@ window.deleteDocument=async function(id){
 window.renderDocuments=renderDocuments;
 
 // ==================== UTILS ====================
+// Wareneinkauf = Geldabfluss für Ware. Zählt NICHT in Gewinn/Ausgaben, weil der Aufwand
+// erst beim Verkauf als Wareneinsatz gebucht wird (sonst wären die Kosten doppelt drin).
+const KAT_WARENEINKAUF='Wareneinkauf';
+function istWareneinkauf(e){ return e && e.kategorie===KAT_WARENEINKAUF; }
 function chf(num){const p=Number(num).toFixed(2).split('.');p[0]=p[0].replace(/\B(?=(\d{3})+(?!\d))/g,"'");return p.join('.');}
 function escapeHtml(s){if(!s)return'';return String(s).replace(/[&<>]/g,m=>m==='&'?'&amp;':m==='<'?'&lt;':'&gt;');}
 function showToast(msg){const t=document.createElement('div');t.className='toast';t.textContent=msg;document.body.appendChild(t);setTimeout(()=>t.remove(),2500);}
