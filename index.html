@@ -1597,10 +1597,9 @@
             <div id="privatProductStock" style="font-size:0.78rem;color:rgba(255,255,255,0.38);margin-top:3px;"></div>
         </div>
         <div class="form-group"><label class="form-label">Menge *</label><input class="form-input" id="privatMenge" type="number" min="1" placeholder="1" oninput="updatePrivatPreview()"></div>
-        <div class="form-group"><label class="form-label">Wert / Stück (CHF) *</label><input class="form-input" id="privatWert" type="number" min="0" step="0.01" placeholder="Marktwert eintragen" oninput="updatePrivatPreview()"></div>
         <div id="privatWarning" style="font-size:0.78rem;color:#fca5a5;margin-top:-0.5rem;margin-bottom:0.8rem;display:none;">Menge überschreitet den Bestand!</div>
         <div id="privatPreview" style="font-size:0.78rem;color:rgba(255,255,255,0.5);line-height:1.6;margin-bottom:0.4rem;"></div>
-        <div style="font-size:0.72rem;color:rgba(255,255,255,0.3);">Üblich ist der Marktwert (z.B. dein Shop-Preis). Die Bewertung am besten mit dem Treuhänder abstimmen.</div>
+        <div style="font-size:0.72rem;color:rgba(255,255,255,0.3);">Die Ware wird zum Einkaufspreis aus dem Bestand genommen. Der Gewinn bleibt unverändert (Wirkung CHF 0.00).</div>
         <div class="modal-actions">
             <button class="btn btn-secondary" onclick="closePrivatModal()">Abbrechen</button>
             <button class="btn" onclick="confirmPrivat()" style="background:linear-gradient(135deg,#7c3aed,#8b5cf6);color:white;flex:1;padding:0.75rem;">Privatbezug buchen</button>
@@ -2364,8 +2363,8 @@ document.getElementById('sellMenge').addEventListener('input',async function(){
 // ==================== PRIVATBEZUG ====================
 // Eigenbedarf (z.B. Display selbst öffnen): Bestand sinkt, Buchhaltung erhält
 //  - Ausgabe: Wareneinsatz (EK × Menge)
-//  - Einnahme (Kategorie "Privatbezug"): eingetragener Wert × Menge
-// Der Gewinn verändert sich damit um (Wert − EK) × Menge. Kein Eintrag in der Verkaufshistorie.
+//  - Einnahme (Kategorie "Privatbezug"): ebenfalls EK × Menge
+// Der Gewinn bleibt damit unverändert (±0). Kein Eintrag in der Verkaufshistorie.
 let privatId=null, _privatProdukt=null;
 window.openPrivatModal=async function(id){
     const data=await loadData(); const p=data.find(x=>x.id===id); if(!p)return;
@@ -2375,33 +2374,28 @@ window.openPrivatModal=async function(id){
     document.getElementById('privatProductStock').textContent=`Bestand: ${p.menge} Stück · EK CHF ${Number(p.preis).toFixed(2)}`;
     document.getElementById('privatMenge').value='1';
     document.getElementById('privatMenge').max=p.menge;
-    document.getElementById('privatWert').value='';   // bewusst leer: Marktwert muss aktiv eingetragen werden
     document.getElementById('privatWarning').style.display='none';
     updatePrivatPreview();
     document.getElementById('privatModalOverlay').classList.add('active');
-    setTimeout(()=>document.getElementById('privatWert').focus(),100);
+    setTimeout(()=>document.getElementById('privatMenge').focus(),100);
 };
 window.closePrivatModal=function(){document.getElementById('privatModalOverlay').classList.remove('active');privatId=null;_privatProdukt=null;};
 window.updatePrivatPreview=function(){
     const box=document.getElementById('privatPreview'); const warn=document.getElementById('privatWarning');
     if(!box||!_privatProdukt)return;
     const menge=parseInt(document.getElementById('privatMenge').value);
-    const wert=parseFloat(document.getElementById('privatWert').value);
     warn.style.display=(!isNaN(menge)&&menge>_privatProdukt.menge)?'block':'none';
-    if(isNaN(menge)||menge<=0||isNaN(wert)||wert<=0){box.innerHTML='';return;}
-    const ek=_privatProdukt.preis*menge, wv=wert*menge, eff=wv-ek;
-    box.innerHTML=`Wareneinsatz (Ausgabe): CHF ${chf(ek)}<br>Wert Privatbezug (Einnahme): CHF ${chf(wv)}<br>Wirkung auf den Gewinn: <strong style="color:${eff>0?'#34d399':eff<0?'#f87171':'rgba(255,255,255,0.7)'}">${eff>0?'+':eff<0?'−':''}CHF ${chf(Math.abs(eff))}</strong>`;
+    if(isNaN(menge)||menge<=0){box.innerHTML='';return;}
+    const ek=_privatProdukt.preis*menge;
+    box.innerHTML=`Ausgabe (Wareneinsatz): CHF ${chf(ek)}<br>Einnahme (Privatbezug): CHF ${chf(ek)}<br>Wirkung auf den Gewinn: <strong>CHF 0.00</strong>`;
 };
 window.confirmPrivat=async function(){
     if(!privatId)return;
     const menge=parseInt(document.getElementById('privatMenge').value);
-    const wertRaw=document.getElementById('privatWert').value.trim();
-    const wert=parseFloat(wertRaw);
     const data=await loadData(); const idx=data.findIndex(x=>x.id===privatId); if(idx===-1)return;
     const p=data[idx];
     if(isNaN(menge)||menge<=0){showToast('Ungültige Menge!');return;}
     if(menge>Number(p.menge)){document.getElementById('privatWarning').style.display='block';return;}
-    if(wertRaw===''||isNaN(wert)||wert<=0){showToast('Wert pro Stück fehlt!');return;}
 
     const d=new Date();
     const heutISO=d.toISOString().split('T')[0];
@@ -2421,8 +2415,8 @@ window.confirmPrivat=async function(){
         id:'priv_vk_'+ts, datum:heutISO,
         beschreibung:`Privatbezug: ${p.name} (${menge}×)`,
         kategorie:'Privatbezug', typ:'einnahme',
-        betrag:wert*menge, bestellnummer:ref,
-        notiz:`Wert CHF ${wert.toFixed(2)}/Stk`
+        betrag:Number(p.preis)*menge, bestellnummer:ref,
+        notiz:`Bewertung zum EK CHF ${Number(p.preis).toFixed(2)}/Stk (gewinnneutral)`
     });
     await saveBuchData(buch);
 
@@ -2432,7 +2426,7 @@ window.confirmPrivat=async function(){
     closePrivatModal();
     await renderTable();
     showToast(`Privatbezug gebucht: ${menge}× ${p.name}`);
-    await logActivity('Privatbezug',`${menge}× ${p.name} (Wert CHF ${wert.toFixed(2)}/Stk, Ref. ${ref})`);
+    await logActivity('Privatbezug',`${menge}× ${p.name} (zum EK CHF ${Number(p.preis).toFixed(2)}/Stk, Ref. ${ref})`);
     await saveChartSnapshot();
 };
 
