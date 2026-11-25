@@ -975,7 +975,7 @@
 
         <div class="sidebar-item" id="nav-anfangsinventar" onclick="switchPage('anfangsinventar')">
             <span class="sidebar-icon">🗂️</span>
-            <span class="sidebar-text">Anfangsinventar</span>
+            <span class="sidebar-text">Privatbeleg 1.Mai</span>
         </div>
 
         <div class="sidebar-divider"></div>
@@ -1302,7 +1302,7 @@
             <div class="content-area">
                 <div class="inv-header">
                     <div>
-                        <div class="inv-title">🗂️ Anfangsinventar</div>
+                        <div class="inv-title">🗂️ Privatbeleg 1.Mai</div>
                         <div class="inv-subtitle">Nachträglich rekonstruierter Lagerbestand per Stichtag — nur deine Daten</div>
                     </div>
                     <div style="display:flex;gap:0.6rem;flex-wrap:wrap;align-items:center;">
@@ -2694,7 +2694,7 @@ window.exportAnfangsinventarPDF=async function(){
         doc.text(`Seite ${p} / ${total}`,ML+CW,PH-7,{align:'right'});
     }
     doc.save(`PokeLight_${istKauf?'Kaufbeleg':'Sacheinlage'}_Privatware_${_aiState.stichtag}_${user}.pdf`);
-    await logActivity('Anfangsinventar-PDF',`Stichtag ${stDat}: ${rows.length} Produkte, ${totalStk} Stk, ${fmt(totalWert)}`);
+    await logActivity('Privatbeleg-PDF',`Stichtag ${stDat}: ${rows.length} Produkte, ${totalStk} Stk, ${fmt(totalWert)}`);
 };
 
 // ==================== KATEGORIEN ALTER VERKÄUFE KORRIGIEREN ====================
