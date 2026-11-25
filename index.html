@@ -2465,6 +2465,7 @@ function aiParseDatum(d){
 }
 const aiNorm=n=>String(n||'').trim().toLowerCase().replace(/\s+/g,' ');
 const aiKey=(name,kat)=>aiNorm(name)+'|'+aiNorm(kat);
+const aiEnc=k=>encodeURIComponent(k).replace(/['()*!~]/g,c=>'%'+c.charCodeAt(0).toString(16).toUpperCase());
 
 async function berechneAnfangsinventar(){
     const st=_aiState;
@@ -2513,7 +2514,10 @@ async function berechneAnfangsinventar(){
         const roh=r.heute+r.verkauft+r.privat-nach;
         const ek=r.ek===null?0:r.ek;
         const aus=!!(st.ausgeschlossen&&st.ausgeschlossen[r.key]);
-        return {...r,ek,nach,manuell,roh,aus,stichtagMenge:Math.max(0,roh),wert:Math.max(0,roh)*ek};
+        const hatOverride=!!(st.mengeOverride&&Object.prototype.hasOwnProperty.call(st.mengeOverride,r.key));
+        const berechnet=Math.max(0,roh);
+        const menge=hatOverride?Math.max(0,Number(st.mengeOverride[r.key])||0):berechnet;
+        return {...r,ek,nach,manuell,roh,aus,berechnet,hatOverride,stichtagMenge:menge,wert:menge*ek};
     });
     rows.sort((a,b)=>a.kategorie.localeCompare(b.kategorie)||a.name.localeCompare(b.name));
     return rows;
@@ -2541,7 +2545,7 @@ async function renderAnfangsinventar(){
         if(r.eingangAuto>0&&!r.manuell)hinweise.push('Nachgekauft aus Wareneingang vorausgefüllt');
         const hint=hinweise.length?` <span title="${escapeHtml(hinweise.join(' · '))}" style="cursor:help;color:#fbbf24;">ⓘ</span>`:'';
         return `<tr style="${(r.stichtagMenge===0||r.aus)?'opacity:0.45;':''}">
-            <td><input type="checkbox" ${r.aus?'':'checked'} title="${r.aus?'Nicht auf dem Beleg':'Auf dem Beleg'}" onchange="aiSetAusgeschlossen('${encodeURIComponent(r.key)}',!this.checked)" style="width:16px;height:16px;cursor:pointer;"></td>
+            <td><input type="checkbox" ${r.aus?'':'checked'} title="${r.aus?'Nicht auf dem Beleg':'Auf dem Beleg'}" onchange="aiSetAusgeschlossen('${aiEnc(r.key)}',!this.checked)" style="width:16px;height:16px;cursor:pointer;"></td>
             <td style="color:rgba(255,255,255,0.22);font-size:0.72rem">${i+1}</td>
             <td style="font-weight:600;font-size:0.85rem;${r.aus?'text-decoration:line-through;':''}">${escapeHtml(r.name)}${hint}</td>
             <td><span class="badge badge-andere">${escapeHtml(r.kategorie)}</span></td>
@@ -2549,8 +2553,8 @@ async function renderAnfangsinventar(){
             <td>${r.heute}</td>
             <td style="color:#4ade80">${r.verkauft?'+'+r.verkauft:'0'}</td>
             <td style="color:#c4b5fd">${r.privat?'+'+r.privat:'0'}</td>
-            <td><input class="form-input" type="number" step="1" value="${r.nach}" style="width:78px;padding:0.35rem 0.5rem;${r.manuell?'border-color:rgba(59,130,246,0.6);':''}" onchange="aiSetNachkauf('${encodeURIComponent(r.key)}',this.value)"></td>
-            <td style="font-weight:700;${neg?'color:#f87171':''}" ${neg?'title="Rechnerisch negativ – Nachgekauft zu hoch? Wird als 0 gezählt."':''}>${neg?'⚠️ 0':r.stichtagMenge}</td>
+            <td><input class="form-input" type="number" step="1" value="${r.nach}" style="width:78px;padding:0.35rem 0.5rem;${r.manuell?'border-color:rgba(59,130,246,0.6);':''}" onchange="aiSetNachkauf('${aiEnc(r.key)}',this.value)"></td>
+            <td><input class="form-input" type="number" min="0" step="1" value="${r.stichtagMenge}" title="${r.hatOverride?'Manuell angepasst (berechnet: '+r.berechnet+'). Feld leeren = zurück zur Berechnung.':(neg?'Rechnerisch negativ – Nachgekauft zu hoch? Wird als 0 gezählt.':'Berechnet – direkt änderbar')}" style="width:78px;padding:0.35rem 0.5rem;font-weight:700;${r.hatOverride?'border-color:rgba(251,191,36,0.7);color:#fbbf24;':''}${neg&&!r.hatOverride?'border-color:rgba(248,113,113,0.7);':''}" onchange="aiSetMenge('${aiEnc(r.key)}',this.value)"></td>
             <td class="price-cell price-positive">CHF ${chf(r.wert)}</td>
         </tr>`;
     }).join('');
@@ -2569,6 +2573,16 @@ window.aiSetAusgeschlossen=async function(encKey,aus){
     const key=decodeURIComponent(encKey);
     if(!_aiState.ausgeschlossen)_aiState.ausgeschlossen={};
     if(aus)_aiState.ausgeschlossen[key]=true; else delete _aiState.ausgeschlossen[key];
+    _aiState.updated=new Date().toISOString();
+    await saveAnfangState(_aiState);
+    await renderAnfangsinventar();
+};
+window.aiSetMenge=async function(encKey,val){
+    const key=decodeURIComponent(encKey);
+    if(!_aiState.mengeOverride)_aiState.mengeOverride={};
+    const v=String(val).trim();
+    if(v===''){delete _aiState.mengeOverride[key];}
+    else{const n=parseInt(v); if(isNaN(n)||n<0){showToast('⚠️ Ungültige Menge');return;} _aiState.mengeOverride[key]=n;}
     _aiState.updated=new Date().toISOString();
     await saveAnfangState(_aiState);
     await renderAnfangsinventar();
@@ -2651,7 +2665,7 @@ window.exportAnfangsinventarPDF=async function(){
     y=doc.lastAutoTable.finalY+12;
     if(y>PH-55){doc.addPage();y=MT+10;}
     doc.setFontSize(7.5);doc.setFont('helvetica','italic');doc.setTextColor(120,120,120);
-    const hinweisL=doc.splitTextToSize(`Die Mengen wurden nachträglich rekonstruiert (Herleitung siehe nächste Seite). Mit der Unterschrift bestätigen die Parteien Bestand und Bewertung per ${stDat}.`,CW);
+    const hinweisL=doc.splitTextToSize(`Mit der Unterschrift bestätigen die Parteien Bestand und Bewertung per ${stDat}.`,CW);
     doc.text(hinweisL,ML,y); y+=hinweisL.length*3.4+14;
     doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(75,85,99);
     doc.setDrawColor(150,150,150);doc.setLineWidth(0.3);
@@ -2661,29 +2675,6 @@ window.exportAnfangsinventarPDF=async function(){
     doc.line(ML,y,ML+CW/2-5,y); doc.line(ML+CW/2+5,y,ML+CW,y);
     doc.text(istKauf?`Verkäufer: ${user}`:`Einbringender Gesellschafter: ${user}`,ML,y+5);
     doc.text(`Für die ${firma}`,ML+CW/2+5,y+5);
-
-    // Seite 2: Herleitung
-    doc.addPage(); y=MT;
-    doc.setFontSize(11);doc.setFont('helvetica','bold');doc.setTextColor(17,24,39);
-    doc.text(`Herleitung des Inventars per ${stDat}`,ML,y);
-    y+=6;
-    doc.setFontSize(7.8);doc.setFont('helvetica','normal');doc.setTextColor(75,85,99);
-    const txt=`Das Inventar wurde am ${heute} nachträglich rekonstruiert: Bestand am ${heute} + Verkäufe seit ${stDat} (Verkaufshistorie) + Privatbezüge seit ${stDat} - Wareneinkäufe seit ${stDat} (gemäss Lieferantenrechnungen) = Bestand am ${stDat}. Bewertung zum im Inventar hinterlegten Einkaufspreis; bei bereits ausverkauften Produkten zum EK gemäss Verkaufshistorie.`;
-    const lines=doc.splitTextToSize(txt,CW); doc.text(lines,ML,y); y+=lines.length*3.6+3;
-    doc.autoTable({
-        startY:y, margin:{left:ML,right:MR},
-        head:[['Produkt','Kategorie',`Bestand ${heute}`,'+ Verkauft','+ Privat','- Nachgekauft',`= ${stDat}`]],
-        body:rows.map(r=>[r.name,r.kategorie,r.heute,r.verkauft,r.privat,r.nach,r.stichtagMenge]),
-        foot:[['Total','',rows.reduce((s,r)=>s+r.heute,0),rows.reduce((s,r)=>s+r.verkauft,0),rows.reduce((s,r)=>s+r.privat,0),rows.reduce((s,r)=>s+r.nach,0),totalStk]],
-        theme:'plain',
-        headStyles:{fillColor:[243,244,246],textColor:[80,80,80],fontStyle:'bold',fontSize:7,cellPadding:2.5},
-        bodyStyles:{fontSize:7.6,cellPadding:2.5,textColor:[55,65,81]},
-        footStyles:{fillColor:[245,245,245],fontStyle:'bold',fontSize:7.8,cellPadding:2.8,textColor:[17,24,39]},
-        alternateRowStyles:{fillColor:[249,250,251]},
-        columnStyles:{0:{cellWidth:66},1:{cellWidth:26},2:{halign:'right'},3:{halign:'right'},4:{halign:'right'},5:{halign:'right'},6:{halign:'right',fontStyle:'bold'}},
-        didParseCell:d=>{ if((d.section==='foot'||d.section==='head')&&d.column.index>=2)d.cell.styles.halign='right'; },
-        tableLineColor:[220,220,220],tableLineWidth:0.2
-    });
 
     const total=doc.getNumberOfPages();
     for(let p=1;p<=total;p++){
