@@ -1308,6 +1308,10 @@
                     <div style="display:flex;gap:0.6rem;flex-wrap:wrap;align-items:center;">
                         <label style="font-size:0.78rem;color:rgba(255,255,255,0.5);">Stichtag</label>
                         <input class="form-input" id="aiStichtag" type="date" style="width:auto;padding:0.5rem 0.7rem;" onchange="aiStichtagGeaendert()">
+                        <select class="filter-select" id="aiBelegArt" title="Wie wird die Ware ins Geschäft übernommen? Mit dem Treuhänder abstimmen.">
+                            <option value="einlage">Sacheinlage (ohne Bezahlung)</option>
+                            <option value="kauf">Kauf durch die Gesellschaft</option>
+                        </select>
                         <button class="btn btn-sm" style="background:linear-gradient(135deg,#7c3aed,#4f46e5);color:white;" onclick="exportAnfangsinventarPDF()">📄 PDF-Beleg</button>
                     </div>
                 </div>
@@ -2579,6 +2583,7 @@ window.exportAnfangsinventarPDF=async function(){
     const fmt=n=>'CHF '+chf(n);
     const totalWert=rows.reduce((s,r)=>s+r.wert,0);
     const totalStk=rows.reduce((s,r)=>s+r.stichtagMenge,0);
+    const istKauf=(document.getElementById('aiBelegArt')?.value||'einlage')==='kauf';
 
     let y=MT;
     doc.setFontSize(14);doc.setFont('helvetica','bold');doc.setTextColor(17,24,39);
@@ -2586,15 +2591,37 @@ window.exportAnfangsinventarPDF=async function(){
     doc.setFontSize(8.5);doc.setFont('helvetica','normal');doc.setTextColor(107,114,128);
     doc.text(`Inhaber: ${user}`,ML,y+6);
     doc.setFontSize(10);doc.setFont('helvetica','bold');doc.setTextColor(17,24,39);
-    doc.text(`Inventar per ${stDat}`,ML+CW,y,{align:'right'});
+    doc.text(istKauf?'Kaufbeleg Warenübernahme':'Beleg Sacheinlage',ML+CW,y,{align:'right'});
     doc.setFontSize(8);doc.setFont('helvetica','normal');doc.setTextColor(107,114,128);
-    doc.text(`Erstellt: ${heute}`,ML+CW,y+6,{align:'right'});
+    doc.text(`Stichtag: ${stDat} · Erstellt: ${heute}`,ML+CW,y+6,{align:'right'});
     y+=13;
     doc.setDrawColor(220,220,220);doc.setLineWidth(0.3);doc.line(ML,y,ML+CW,y);
-    y+=6;
+    y+=8;
+    doc.setFontSize(12);doc.setFont('helvetica','bold');doc.setTextColor(17,24,39);
+    doc.text('Übernahme von Privatware ins Geschäftsvermögen',ML,y);
+    y+=7;
+    doc.autoTable({
+        startY:y, margin:{left:ML,right:MR}, theme:'plain',
+        body:[
+            [istKauf?'Verkäufer (privat)':'Einbringender Gesellschafter', user],
+            [istKauf?'Käuferin':'Übernehmende Gesellschaft', firma],
+            ['Übernahmedatum (Stichtag)', stDat],
+            ['Art der Übernahme', istKauf?'Kauf durch die Gesellschaft (Kaufpreis wird dem Verkäufer geschuldet)':'Sacheinlage (Gutschrift auf dem Kapitalkonto des Gesellschafters)'],
+            ['Bewertung','zu den ursprünglichen Einkaufspreisen (Anschaffungskosten)'],
+            [istKauf?'Kaufpreis total':'Einlagewert total', fmt(totalWert)],
+        ],
+        bodyStyles:{fontSize:8.5,cellPadding:{top:2.6,bottom:2.6,left:4,right:4},textColor:[55,65,81]},
+        alternateRowStyles:{fillColor:[249,250,251]},
+        columnStyles:{0:{cellWidth:55,textColor:[107,114,128]},1:{fontStyle:'bold'}},
+        didParseCell:d=>{ if(d.row.index===5){d.cell.styles.fontSize=10;d.cell.styles.textColor=[17,24,39];} },
+        tableLineColor:[220,220,220],tableLineWidth:0.2
+    });
+    y=doc.lastAutoTable.finalY+5;
     doc.setFontSize(8);doc.setFont('helvetica','normal');doc.setTextColor(75,85,99);
-    doc.text(`Warenlager zu Beginn der Geschäftstätigkeit (Stichtag ${stDat}). Bewertung zu Einkaufspreisen.`,ML,y,{maxWidth:CW});
-    y+=6;
+    const intro=istKauf
+        ? `${user} verkauft der ${firma} per ${stDat} die nachfolgend aufgeführte, vor Geschäftsbeginn privat erworbene Ware zum Gesamtpreis von ${fmt(totalWert)}. Die Ware geht per Stichtag in das Eigentum und Warenlager der Gesellschaft über.`
+        : `${user} bringt per ${stDat} die nachfolgend aufgeführte, vor Geschäftsbeginn privat erworbene Ware als Sacheinlage in die ${firma} ein. Der Einlagewert von ${fmt(totalWert)} wird dem Kapitalkonto von ${user} gutgeschrieben. Die Ware geht per Stichtag in das Eigentum und Warenlager der Gesellschaft über.`;
+    const introL=doc.splitTextToSize(intro,CW); doc.text(introL,ML,y+2); y+=introL.length*3.6+5;
 
     doc.autoTable({
         startY:y, margin:{left:ML,right:MR},
@@ -2607,14 +2634,22 @@ window.exportAnfangsinventarPDF=async function(){
         footStyles:{fillColor:[245,245,245],fontStyle:'bold',fontSize:8.8,cellPadding:3.5,textColor:[17,24,39]},
         alternateRowStyles:{fillColor:[249,250,251]},
         columnStyles:{0:{cellWidth:9,textColor:[160,160,160]},1:{cellWidth:72},2:{cellWidth:28},3:{cellWidth:16,halign:'right'},4:{cellWidth:28,halign:'right'},5:{cellWidth:29,halign:'right'}},
-        didParseCell:d=>{ if(d.section==='foot'&&[3,5].includes(d.column.index))d.cell.styles.halign='right'; },
+        didParseCell:d=>{ if((d.section==='foot'||d.section==='head')&&[3,4,5].includes(d.column.index))d.cell.styles.halign='right'; },
         tableLineColor:[220,220,220],tableLineWidth:0.2
     });
-    y=doc.lastAutoTable.finalY+14;
-    if(y>PH-40){doc.addPage();y=MT+10;}
-    doc.setFontSize(8);doc.setFont('helvetica','normal');doc.setTextColor(75,85,99);
-    doc.text('Ort, Datum',ML,y+8); doc.text('Unterschrift',ML+CW/2+5,y+8);
-    doc.setDrawColor(150,150,150);doc.line(ML,y+2,ML+CW/2-5,y+2);doc.line(ML+CW/2+5,y+2,ML+CW,y+2);
+    y=doc.lastAutoTable.finalY+12;
+    if(y>PH-55){doc.addPage();y=MT+10;}
+    doc.setFontSize(7.5);doc.setFont('helvetica','italic');doc.setTextColor(120,120,120);
+    const hinweisL=doc.splitTextToSize(`Die Mengen wurden nachträglich rekonstruiert (Herleitung siehe nächste Seite). Mit der Unterschrift bestätigen die Parteien Bestand und Bewertung per ${stDat}.`,CW);
+    doc.text(hinweisL,ML,y); y+=hinweisL.length*3.4+14;
+    doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(75,85,99);
+    doc.setDrawColor(150,150,150);doc.setLineWidth(0.3);
+    doc.line(ML,y,ML+CW/2-5,y); doc.line(ML+CW/2+5,y,ML+CW,y);
+    doc.text('Ort, Datum',ML,y+5); doc.text('Ort, Datum',ML+CW/2+5,y+5);
+    y+=18;
+    doc.line(ML,y,ML+CW/2-5,y); doc.line(ML+CW/2+5,y,ML+CW,y);
+    doc.text(istKauf?`Verkäufer: ${user}`:`Einbringender Gesellschafter: ${user}`,ML,y+5);
+    doc.text(`Für die ${firma}`,ML+CW/2+5,y+5);
 
     // Seite 2: Herleitung
     doc.addPage(); y=MT;
@@ -2622,11 +2657,11 @@ window.exportAnfangsinventarPDF=async function(){
     doc.text(`Herleitung des Inventars per ${stDat}`,ML,y);
     y+=6;
     doc.setFontSize(7.8);doc.setFont('helvetica','normal');doc.setTextColor(75,85,99);
-    const txt=`Das Inventar wurde am ${heute} nachträglich rekonstruiert: Bestand am ${heute} + Verkäufe seit ${stDat} (Verkaufshistorie) + Privatbezüge seit ${stDat} − Wareneinkäufe seit ${stDat} (gemäss Lieferantenrechnungen) = Bestand am ${stDat}. Bewertung zum im Inventar hinterlegten Einkaufspreis; bei bereits ausverkauften Produkten zum EK gemäss Verkaufshistorie.`;
+    const txt=`Das Inventar wurde am ${heute} nachträglich rekonstruiert: Bestand am ${heute} + Verkäufe seit ${stDat} (Verkaufshistorie) + Privatbezüge seit ${stDat} - Wareneinkäufe seit ${stDat} (gemäss Lieferantenrechnungen) = Bestand am ${stDat}. Bewertung zum im Inventar hinterlegten Einkaufspreis; bei bereits ausverkauften Produkten zum EK gemäss Verkaufshistorie.`;
     const lines=doc.splitTextToSize(txt,CW); doc.text(lines,ML,y); y+=lines.length*3.6+3;
     doc.autoTable({
         startY:y, margin:{left:ML,right:MR},
-        head:[['Produkt','Kategorie',`Bestand ${heute}`,'+ Verkauft','+ Privat','− Nachgekauft',`= ${stDat}`]],
+        head:[['Produkt','Kategorie',`Bestand ${heute}`,'+ Verkauft','+ Privat','- Nachgekauft',`= ${stDat}`]],
         body:rows.map(r=>[r.name,r.kategorie,r.heute,r.verkauft,r.privat,r.nach,r.stichtagMenge]),
         foot:[['Total','',rows.reduce((s,r)=>s+r.heute,0),rows.reduce((s,r)=>s+r.verkauft,0),rows.reduce((s,r)=>s+r.privat,0),rows.reduce((s,r)=>s+r.nach,0),totalStk]],
         theme:'plain',
@@ -2644,10 +2679,10 @@ window.exportAnfangsinventarPDF=async function(){
         doc.setPage(p);
         doc.setDrawColor(200,200,200);doc.setLineWidth(0.3);doc.line(ML,PH-12,ML+CW,PH-12);
         doc.setFontSize(7);doc.setFont('helvetica','normal');doc.setTextColor(150,150,150);
-        doc.text(`${firma} · Inventar per ${stDat} · ${user}`,ML,PH-7);
+        doc.text(`${firma} · ${istKauf?'Kaufbeleg':'Sacheinlage'} Privatware per ${stDat} · ${user}`,ML,PH-7);
         doc.text(`Seite ${p} / ${total}`,ML+CW,PH-7,{align:'right'});
     }
-    doc.save(`PokeLight_Inventar_${_aiState.stichtag}_${user}.pdf`);
+    doc.save(`PokeLight_${istKauf?'Kaufbeleg':'Sacheinlage'}_Privatware_${_aiState.stichtag}_${user}.pdf`);
     await logActivity('Anfangsinventar-PDF',`Stichtag ${stDat}: ${rows.length} Produkte, ${totalStk} Stk, ${fmt(totalWert)}`);
 };
 
