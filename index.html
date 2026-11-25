@@ -497,6 +497,7 @@
         .badge-booster { background: rgba(106,17,255,0.16); color: #c4b5fd; }
         .badge-display { background: rgba(37,117,252,0.16); color: #93c5fd; }
         .badge-tin     { background: rgba(247,151,30,0.16); color: #fcd34d; }
+        .badge-bundle  { background: rgba(249,115,22,0.16); color: #fdba74; }
         .badge-upc     { background: rgba(236,72,153,0.16); color: #f9a8d4; }
         .badge-etb     { background: rgba(0,176,155,0.16); color: #6ee7b7; }
         .badge-blister { background: rgba(241,39,17,0.16); color: #fca5a5; }
@@ -1128,6 +1129,7 @@
                     <select class="filter-select" id="filterKategorie">
                         <option value="">Alle Kategorien</option>
                         <option value="Booster Pack">Booster Pack</option>
+                        <option value="Booster Bundle">Booster Bundle</option>
                         <option value="Display">Display</option>
                         <option value="Tin">Tin</option>
                         <option value="ETB">ETB</option>
@@ -1505,7 +1507,7 @@
         <div class="form-row">
             <div class="form-group"><label class="form-label">Kategorie *</label>
                 <select class="form-select" id="fKategorie">
-                    <option value="Booster Pack">Booster Pack</option><option value="Display">Display</option>
+                    <option value="Booster Pack">Booster Pack</option><option value="Booster Bundle">Booster Bundle</option><option value="Display">Display</option>
                     <option value="Tin">Tin</option><option value="ETB">ETB</option><option value="UPC">UPC</option>
                     <option value="Blister">Blister</option><option value="Promo">Promo</option><option value="Andere">Andere</option>
                 </select>
@@ -2223,7 +2225,7 @@ async function updateStats(){
 }
 
 // ==================== INVENTUR TABLE ====================
-const BADGE_MAP={'Booster Pack':'badge-booster','Display':'badge-display','Tin':'badge-tin','ETB':'badge-etb','UPC':'badge-upc','Blister':'badge-blister','Promo':'badge-promo','Andere':'badge-andere'};
+const BADGE_MAP={'Booster Pack':'badge-booster','Booster Bundle':'badge-bundle','Display':'badge-display','Tin':'badge-tin','ETB':'badge-etb','UPC':'badge-upc','Blister':'badge-blister','Promo':'badge-promo','Andere':'badge-andere'};
 
 async function renderTable(){
     const data=await loadData();
@@ -2896,7 +2898,7 @@ window.importCSV=function(ev){
                 const menge=parseInt(c[3])||0; const preis=parseFloat((c[4]||'').replace(',','.'))||0;
                 const datum=c[6]?c[6].trim():''; const notiz=c[7]?c[7].replace(/^"|"$/g,'').trim():'';
                 const sku=c[8]?c[8].trim():'';
-                const VK=['Booster Pack','Display','Tin','ETB','UPC','Blister','Promo','Andere'];
+                const VK=['Booster Pack','Booster Bundle','Display','Tin','ETB','UPC','Blister','Promo','Andere'];
                 if(!name)continue;
                 imported.push({id:Date.now().toString()+'_'+i,name,kategorie:VK.includes(kat)?kat:'Andere',menge,preis,datum,notiz,sku});
             }
@@ -2958,7 +2960,7 @@ const SKU_CATEGORY_KEYWORDS=[
     ['ultra premium collection','UPC'],['ultra-premium collection','UPC'],['ultra premium','UPC'],['upc','UPC'],
     ['elite trainer box','ETB'],['etb','ETB'],
     ['display','Display'],
-    ['booster bundle','Booster Pack'],['booster pack','Booster Pack'],['booster','Booster Pack'],
+    ['booster bundle','Booster Bundle'],['booster pack','Booster Pack'],['booster','Booster Pack'],
     ['tin','Tin'],['blister','Blister'],['promo','Promo']
 ];
 function inferKategorieFromTitle(title){
@@ -3711,7 +3713,7 @@ window.exportBuchPDF = async function() {
 let dashRevenueChartInstance=null;
 let dashRevenueAnimId=null;
 const DASH_KAT_COLORS={
-    'Booster Pack':'#8B5CF6','Display':'#3B82F6','Tin':'#F59E0B','ETB':'#10B981','UPC':'#EC4899',
+    'Booster Pack':'#8B5CF6','Booster Bundle':'#F97316','Display':'#3B82F6','Tin':'#F59E0B','ETB':'#10B981','UPC':'#EC4899',
     'Blister':'#EF4444','Promo':'#FBBF24','Andere':'#6B7280'
 };
 
