@@ -1325,6 +1325,7 @@
                 <div style="font-size:0.78rem;color:rgba(255,255,255,0.45);line-height:1.6;margin-bottom:1rem;background:rgba(255,255,255,0.03);border:0.5px solid rgba(255,255,255,0.08);border-radius:0.8rem;padding:0.8rem 1rem;">
                     <strong style="color:rgba(255,255,255,0.75);">Berechnung:</strong> Bestand heute + seit Stichtag verkauft + seit Stichtag privat bezogen − seit Stichtag nachgekauft = Bestand am Stichtag. Bewertung zum hinterlegten EK.<br>
                     Trag in der Spalte <strong style="color:#93c5fd;">Nachgekauft</strong> ein, wie viele Stück du <em>nach</em> dem Stichtag eingekauft hast (gemäss Lieferantenrechnungen). Wareneingänge über den EINGANG-Button sind vorausgefüllt. Eingaben werden automatisch gespeichert.<br>
+                    Mit dem Häkchen in der Spalte <strong>Beleg</strong> entfernst du ein Produkt vom PDF und aus dem Total.<br>
                     <span style="color:#fbbf24;">Nicht erfasst werden:</span> gelöschte Produkte und manuelle Mengenkorrekturen ohne Verkauf. Diese bei Bedarf über «Nachgekauft» ausgleichen (negativer Wert = Stück dazu).
                 </div>
 
@@ -1336,7 +1337,7 @@
                 <div class="table-wrap">
                     <table>
                         <thead>
-                            <tr><th>#</th><th>Produkt</th><th>Kategorie</th><th>EK / Stück</th><th>Heute</th><th>+ Verkauft</th><th>+ Privat</th><th>− Nachgekauft</th><th>= Stichtag</th><th>Wert</th></tr>
+                            <tr><th title="Auf dem Beleg aufführen">Beleg</th><th>#</th><th>Produkt</th><th>Kategorie</th><th>EK / Stück</th><th>Heute</th><th>+ Verkauft</th><th>+ Privat</th><th>− Nachgekauft</th><th>= Stichtag</th><th>Wert</th></tr>
                         </thead>
                         <tbody id="aiBody"></tbody>
                     </table>
@@ -2511,7 +2512,8 @@ async function berechneAnfangsinventar(){
         const nach=manuell?Number(st.nachkauf[r.key])||0:r.eingangAuto;
         const roh=r.heute+r.verkauft+r.privat-nach;
         const ek=r.ek===null?0:r.ek;
-        return {...r,ek,nach,manuell,roh,stichtagMenge:Math.max(0,roh),wert:Math.max(0,roh)*ek};
+        const aus=!!(st.ausgeschlossen&&st.ausgeschlossen[r.key]);
+        return {...r,ek,nach,manuell,roh,aus,stichtagMenge:Math.max(0,roh),wert:Math.max(0,roh)*ek};
     });
     rows.sort((a,b)=>a.kategorie.localeCompare(b.kategorie)||a.name.localeCompare(b.name));
     return rows;
@@ -2523,14 +2525,14 @@ async function renderAnfangsinventar(){
     if(!_aiState.nachkauf)_aiState.nachkauf={};
     const inp=document.getElementById('aiStichtag'); if(inp&&!inp.value)inp.value=_aiState.stichtag||AI_DEFAULT_STICHTAG;
     _aiRows=await berechneAnfangsinventar();
-    const mitBestand=_aiRows.filter(r=>r.stichtagMenge>0);
+    const mitBestand=_aiRows.filter(r=>r.stichtagMenge>0&&!r.aus);
     document.getElementById('aiStatProdukte').textContent=mitBestand.length;
     document.getElementById('aiStatStueck').textContent=mitBestand.reduce((s,r)=>s+r.stichtagMenge,0);
     document.getElementById('aiStatWert').textContent='CHF '+chf(mitBestand.reduce((s,r)=>s+r.wert,0));
     const q=(document.getElementById('aiSearch')?.value||'').toLowerCase();
     const nur=document.getElementById('aiNurBestand')?.checked;
     const list=_aiRows.filter(r=>(!q||r.name.toLowerCase().includes(q))&&(!nur||r.stichtagMenge>0));
-    if(list.length===0){tbody.innerHTML=`<tr><td colspan="10"><div class="empty-state"><div class="empty-icon">🗂️</div><p>Keine Produkte gefunden.</p></div></td></tr>`;return;}
+    if(list.length===0){tbody.innerHTML=`<tr><td colspan="11"><div class="empty-state"><div class="empty-icon">🗂️</div><p>Keine Produkte gefunden.</p></div></td></tr>`;return;}
     tbody.innerHTML=list.map((r,i)=>{
         const neg=r.roh<0;
         const hinweise=[];
@@ -2538,9 +2540,10 @@ async function renderAnfangsinventar(){
         if(r.ekQuelle&&r.ekQuelle!=='Inventar')hinweise.push('EK aus '+r.ekQuelle+' (nicht mehr im Lager)');
         if(r.eingangAuto>0&&!r.manuell)hinweise.push('Nachgekauft aus Wareneingang vorausgefüllt');
         const hint=hinweise.length?` <span title="${escapeHtml(hinweise.join(' · '))}" style="cursor:help;color:#fbbf24;">ⓘ</span>`:'';
-        return `<tr style="${r.stichtagMenge===0?'opacity:0.45;':''}">
+        return `<tr style="${(r.stichtagMenge===0||r.aus)?'opacity:0.45;':''}">
+            <td><input type="checkbox" ${r.aus?'':'checked'} title="${r.aus?'Nicht auf dem Beleg':'Auf dem Beleg'}" onchange="aiSetAusgeschlossen('${encodeURIComponent(r.key)}',!this.checked)" style="width:16px;height:16px;cursor:pointer;"></td>
             <td style="color:rgba(255,255,255,0.22);font-size:0.72rem">${i+1}</td>
-            <td style="font-weight:600;font-size:0.85rem">${escapeHtml(r.name)}${hint}</td>
+            <td style="font-weight:600;font-size:0.85rem;${r.aus?'text-decoration:line-through;':''}">${escapeHtml(r.name)}${hint}</td>
             <td><span class="badge badge-andere">${escapeHtml(r.kategorie)}</span></td>
             <td class="price-cell price-neutral">CHF ${r.ek.toFixed(2)}</td>
             <td>${r.heute}</td>
@@ -2562,6 +2565,14 @@ window.aiSetNachkauf=async function(encKey,val){
     await saveAnfangState(_aiState);
     await renderAnfangsinventar();
 };
+window.aiSetAusgeschlossen=async function(encKey,aus){
+    const key=decodeURIComponent(encKey);
+    if(!_aiState.ausgeschlossen)_aiState.ausgeschlossen={};
+    if(aus)_aiState.ausgeschlossen[key]=true; else delete _aiState.ausgeschlossen[key];
+    _aiState.updated=new Date().toISOString();
+    await saveAnfangState(_aiState);
+    await renderAnfangsinventar();
+};
 window.aiStichtagGeaendert=async function(){
     const v=document.getElementById('aiStichtag').value; if(!v)return;
     _aiState.stichtag=v; _aiState.updated=new Date().toISOString();
@@ -2571,8 +2582,8 @@ window.aiStichtagGeaendert=async function(){
 
 window.exportAnfangsinventarPDF=async function(){
     if(!_aiState)await renderAnfangsinventar();
-    const rows=_aiRows.filter(r=>r.stichtagMenge>0);
-    if(rows.length===0){showToast('⚠️ Kein Bestand am Stichtag');return;}
+    const rows=_aiRows.filter(r=>r.stichtagMenge>0&&!r.aus);
+    if(rows.length===0){showToast('⚠️ Keine Produkte auf dem Beleg');return;}
     const { jsPDF } = window.jspdf;
     const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
     const ML=14, MR=14, MT=16, PH=297, CW=210-ML-MR;
