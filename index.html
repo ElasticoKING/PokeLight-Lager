@@ -497,6 +497,7 @@
         .badge-booster { background: rgba(106,17,255,0.16); color: #c4b5fd; }
         .badge-display { background: rgba(37,117,252,0.16); color: #93c5fd; }
         .badge-tin     { background: rgba(247,151,30,0.16); color: #fcd34d; }
+        .badge-upc     { background: rgba(236,72,153,0.16); color: #f9a8d4; }
         .badge-etb     { background: rgba(0,176,155,0.16); color: #6ee7b7; }
         .badge-blister { background: rgba(241,39,17,0.16); color: #fca5a5; }
         .badge-promo   { background: rgba(255,215,0,0.13); color: #fde68a; }
@@ -1130,6 +1131,7 @@
                         <option value="Display">Display</option>
                         <option value="Tin">Tin</option>
                         <option value="ETB">ETB</option>
+                        <option value="UPC">UPC</option>
                         <option value="Blister">Blister</option>
                         <option value="Promo">Promo</option>
                         <option value="Andere">Andere</option>
@@ -1504,7 +1506,7 @@
             <div class="form-group"><label class="form-label">Kategorie *</label>
                 <select class="form-select" id="fKategorie">
                     <option value="Booster Pack">Booster Pack</option><option value="Display">Display</option>
-                    <option value="Tin">Tin</option><option value="ETB">ETB</option>
+                    <option value="Tin">Tin</option><option value="ETB">ETB</option><option value="UPC">UPC</option>
                     <option value="Blister">Blister</option><option value="Promo">Promo</option><option value="Andere">Andere</option>
                 </select>
             </div>
@@ -2221,7 +2223,7 @@ async function updateStats(){
 }
 
 // ==================== INVENTUR TABLE ====================
-const BADGE_MAP={'Booster Pack':'badge-booster','Display':'badge-display','Tin':'badge-tin','ETB':'badge-etb','Blister':'badge-blister','Promo':'badge-promo','Andere':'badge-andere'};
+const BADGE_MAP={'Booster Pack':'badge-booster','Display':'badge-display','Tin':'badge-tin','ETB':'badge-etb','UPC':'badge-upc','Blister':'badge-blister','Promo':'badge-promo','Andere':'badge-andere'};
 
 async function renderTable(){
     const data=await loadData();
@@ -2618,7 +2620,7 @@ window.exportAnfangsinventarPDF=async function(){
     doc.setFontSize(10);doc.setFont('helvetica','bold');doc.setTextColor(17,24,39);
     doc.text(istKauf?'Kaufbeleg Warenübernahme':'Beleg Sacheinlage',ML+CW,y,{align:'right'});
     doc.setFontSize(8);doc.setFont('helvetica','normal');doc.setTextColor(107,114,128);
-    doc.text(`Stichtag: ${stDat} · Erstellt: ${heute}`,ML+CW,y+6,{align:'right'});
+    doc.text(`Stichtag: ${stDat}`,ML+CW,y+6,{align:'right'});
     y+=13;
     doc.setDrawColor(220,220,220);doc.setLineWidth(0.3);doc.line(ML,y,ML+CW,y);
     y+=8;
@@ -2894,7 +2896,7 @@ window.importCSV=function(ev){
                 const menge=parseInt(c[3])||0; const preis=parseFloat((c[4]||'').replace(',','.'))||0;
                 const datum=c[6]?c[6].trim():''; const notiz=c[7]?c[7].replace(/^"|"$/g,'').trim():'';
                 const sku=c[8]?c[8].trim():'';
-                const VK=['Booster Pack','Display','Tin','ETB','Blister','Promo','Andere'];
+                const VK=['Booster Pack','Display','Tin','ETB','UPC','Blister','Promo','Andere'];
                 if(!name)continue;
                 imported.push({id:Date.now().toString()+'_'+i,name,kategorie:VK.includes(kat)?kat:'Andere',menge,preis,datum,notiz,sku});
             }
@@ -2953,6 +2955,7 @@ function normalizeProductName(str){
         .trim();
 }
 const SKU_CATEGORY_KEYWORDS=[
+    ['ultra premium collection','UPC'],['ultra-premium collection','UPC'],['ultra premium','UPC'],['upc','UPC'],
     ['elite trainer box','ETB'],['etb','ETB'],
     ['display','Display'],
     ['booster bundle','Booster Pack'],['booster pack','Booster Pack'],['booster','Booster Pack'],
@@ -3708,7 +3711,7 @@ window.exportBuchPDF = async function() {
 let dashRevenueChartInstance=null;
 let dashRevenueAnimId=null;
 const DASH_KAT_COLORS={
-    'Booster Pack':'#8B5CF6','Display':'#3B82F6','Tin':'#F59E0B','ETB':'#10B981',
+    'Booster Pack':'#8B5CF6','Display':'#3B82F6','Tin':'#F59E0B','ETB':'#10B981','UPC':'#EC4899',
     'Blister':'#EF4444','Promo':'#FBBF24','Andere':'#6B7280'
 };
 
