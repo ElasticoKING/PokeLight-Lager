@@ -973,6 +973,11 @@
             <span class="sidebar-text">Buchhaltung</span>
         </div>
 
+        <div class="sidebar-item" id="nav-anfangsinventar" onclick="switchPage('anfangsinventar')">
+            <span class="sidebar-icon">🗂️</span>
+            <span class="sidebar-text">Anfangsinventar</span>
+        </div>
+
         <div class="sidebar-divider"></div>
 
         <div class="sidebar-item" id="nav-aufgaben" onclick="switchPage('aufgaben')">
@@ -1287,6 +1292,49 @@
                             </tr>
                         </thead>
                         <tbody id="buchBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== ANFANGSINVENTAR PAGE ===== -->
+        <div class="page" id="page-anfangsinventar">
+            <div class="content-area">
+                <div class="inv-header">
+                    <div>
+                        <div class="inv-title">🗂️ Anfangsinventar</div>
+                        <div class="inv-subtitle">Nachträglich rekonstruierter Lagerbestand per Stichtag — nur deine Daten</div>
+                    </div>
+                    <div style="display:flex;gap:0.6rem;flex-wrap:wrap;align-items:center;">
+                        <label style="font-size:0.78rem;color:rgba(255,255,255,0.5);">Stichtag</label>
+                        <input class="form-input" id="aiStichtag" type="date" style="width:auto;padding:0.5rem 0.7rem;" onchange="aiStichtagGeaendert()">
+                        <button class="btn btn-sm" style="background:linear-gradient(135deg,#7c3aed,#4f46e5);color:white;" onclick="exportAnfangsinventarPDF()">📄 PDF-Beleg</button>
+                    </div>
+                </div>
+
+                <div class="stats-grid">
+                    <div class="stat-card purple"><div class="stat-icon">📦</div><div class="stat-label">Produkte per Stichtag</div><div class="stat-value" id="aiStatProdukte">0</div></div>
+                    <div class="stat-card green"><div class="stat-icon">🔢</div><div class="stat-label">Stück per Stichtag</div><div class="stat-value" id="aiStatStueck">0</div></div>
+                    <div class="stat-card gold"><div class="stat-icon">💰</div><div class="stat-label">Lagerwert per Stichtag (EK)</div><div class="stat-value gold-text" id="aiStatWert">CHF 0.00</div></div>
+                </div>
+
+                <div style="font-size:0.78rem;color:rgba(255,255,255,0.45);line-height:1.6;margin-bottom:1rem;background:rgba(255,255,255,0.03);border:0.5px solid rgba(255,255,255,0.08);border-radius:0.8rem;padding:0.8rem 1rem;">
+                    <strong style="color:rgba(255,255,255,0.75);">Berechnung:</strong> Bestand heute + seit Stichtag verkauft + seit Stichtag privat bezogen − seit Stichtag nachgekauft = Bestand am Stichtag. Bewertung zum hinterlegten EK.<br>
+                    Trag in der Spalte <strong style="color:#93c5fd;">Nachgekauft</strong> ein, wie viele Stück du <em>nach</em> dem Stichtag eingekauft hast (gemäss Lieferantenrechnungen). Wareneingänge über den EINGANG-Button sind vorausgefüllt. Eingaben werden automatisch gespeichert.<br>
+                    <span style="color:#fbbf24;">Nicht erfasst werden:</span> gelöschte Produkte und manuelle Mengenkorrekturen ohne Verkauf. Diese bei Bedarf über «Nachgekauft» ausgleichen (negativer Wert = Stück dazu).
+                </div>
+
+                <div class="toolbar">
+                    <input class="search-box" id="aiSearch" type="text" placeholder="🔍 Produkt suchen..." oninput="renderAnfangsinventar()">
+                    <label style="display:flex;align-items:center;gap:0.4rem;font-size:0.8rem;color:rgba(255,255,255,0.55);cursor:pointer;"><input type="checkbox" id="aiNurBestand" onchange="renderAnfangsinventar()"> Nur Produkte mit Bestand am Stichtag</label>
+                </div>
+
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr><th>#</th><th>Produkt</th><th>Kategorie</th><th>EK / Stück</th><th>Heute</th><th>+ Verkauft</th><th>+ Privat</th><th>− Nachgekauft</th><th>= Stichtag</th><th>Wert</th></tr>
+                        </thead>
+                        <tbody id="aiBody"></tbody>
                     </table>
                 </div>
             </div>
@@ -1818,6 +1866,7 @@ window.switchPage = function(page) {
     if(page==='aufgaben') renderTasks();
     if(page==='dokumente') renderDocuments();
     if(page==='protokoll') renderProtokoll();
+    if(page==='anfangsinventar') renderAnfangsinventar();
     closeSidebar();
 };
 window.toggleSidebar = function() {
@@ -2384,6 +2433,223 @@ document.getElementById('sellMenge').addEventListener('input',async function(){
     const data=await loadData();const p=data.find(x=>x.id===sellingId);if(!p)return;
     document.getElementById('sellWarning').style.display=parseInt(this.value)>p.menge?'block':'none';
 });
+
+
+// ==================== ANFANGSINVENTAR (Rekonstruktion per Stichtag) ====================
+// Bestand am Stichtag = heute + verkauft seit Stichtag + Privatbezug seit Stichtag − nachgekauft seit Stichtag
+// Manuelle "Nachgekauft"-Werte liegen pro Nutzer in users/<key>.anfangsinventar
+const AI_DEFAULT_STICHTAG='2026-05-01';
+let _aiState=null, _aiRows=[];
+async function loadAnfangState(){
+    if(currentUser==='gast')return window._gastAnfang||{stichtag:AI_DEFAULT_STICHTAG,nachkauf:{}};
+    try{const r=doc(db,'users',getKey());const s=await getDoc(r);const d=s.exists()?s.data().anfangsinventar:null;return d||{stichtag:AI_DEFAULT_STICHTAG,nachkauf:{}};}catch(e){console.error(e);return{stichtag:AI_DEFAULT_STICHTAG,nachkauf:{}};}
+}
+async function saveAnfangState(st){
+    if(currentUser==='gast'){window._gastAnfang=st;return;}
+    try{const r=doc(db,'users',getKey());const s=await getDoc(r);const ex=s.exists()?s.data():{};await setDoc(r,{...ex,anfangsinventar:st});}catch(e){console.error(e);}
+}
+// Datum robust parsen: "1.5.2026", "01.05.2026", "2026-05-01", ISO-Timestamp
+function aiParseDatum(d){
+    if(!d)return null;
+    const t=String(d).trim();
+    let m=t.match(/^(\d{1,2})\.(\d{1,2})\.(\d{2,4})/);
+    if(m){let y=+m[3]; if(y<100)y+=2000; return new Date(y,+m[2]-1,+m[1]);}
+    m=t.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if(m)return new Date(+m[1],+m[2]-1,+m[3]);
+    const x=new Date(t); return isNaN(x)?null:new Date(x.getFullYear(),x.getMonth(),x.getDate());
+}
+const aiNorm=n=>String(n||'').trim().toLowerCase().replace(/\s+/g,' ');
+const aiKey=(name,kat)=>aiNorm(name)+'|'+aiNorm(kat);
+
+async function berechneAnfangsinventar(){
+    const st=_aiState;
+    const stichtag=aiParseDatum(st.stichtag||AI_DEFAULT_STICHTAG);
+    const [inv,sold,buch,log]=await Promise.all([loadData(),loadSoldHistory(),loadBuchData(),loadActivityLog()]);
+    const map=new Map();
+    const get=(name,kat)=>{
+        const k=aiKey(name,kat);
+        if(!map.has(k))map.set(k,{key:k,name:String(name||'').trim(),kategorie:kat||'Andere',ek:null,ekQuelle:'',heute:0,verkauft:0,privat:0,eingangAuto:0,unsicher:false,datumNach:false});
+        return map.get(k);
+    };
+    // 1) Heutiger Bestand (EK aus dem Produkt)
+    inv.forEach(p=>{
+        const r=get(p.name,p.kategorie);
+        r.heute+=Number(p.menge)||0;
+        r.ek=Number(p.preis)||0; r.ekQuelle='Inventar';
+        const pd=aiParseDatum(p.datum); if(pd&&pd>stichtag) r.datumNach=true;
+    });
+    // 2) Verkäufe ab Stichtag (inkl.)
+    sold.forEach(h=>{
+        const d=aiParseDatum(h.datum); if(!d||d<stichtag)return;
+        const r=get(h.name,h.kategorie);
+        r.verkauft+=Number(h.menge)||0;
+        if(r.ek===null){r.ek=Number(h.preis)||0;r.ekQuelle='Verkauf';}
+    });
+    // 3) Privatbezüge ab Stichtag (Wareneinsatz-Buchung priv_ek_)
+    buch.forEach(e=>{
+        if(!/^priv_ek_/.test(e.id||''))return;
+        const d=aiParseDatum(e.datum); if(!d||d<stichtag)return;
+        const m=String(e.beschreibung||'').match(/^Wareneinsatz Privatbezug: (.*) \((\d+)×\)$/); if(!m)return;
+        const r=get(m[1],e.kategorie);
+        const n=+m[2]; r.privat+=n;
+        if(r.ek===null&&n>0){r.ek=Number(e.betrag)/n;r.ekQuelle='Privatbezug';}
+    });
+    // 4) Wareneingänge (EINGANG-Button) ab Stichtag → Vorschlag für "Nachgekauft"
+    log.forEach(l=>{
+        if(l.aktion!=='Wareneingang'||!l.ts)return;
+        const d=aiParseDatum(l.ts); if(!d||d<stichtag)return;
+        const m=String(l.details||'').match(/^(.*): \+(\d+) zu CHF/); if(!m)return;
+        const nn=aiNorm(m[1]);
+        for(const r of map.values()){ if(aiNorm(r.name)===nn){ r.eingangAuto+=+m[2]; r.unsicher=true; break; } }
+    });
+    const rows=[...map.values()].map(r=>{
+        const manuell=st.nachkauf&&Object.prototype.hasOwnProperty.call(st.nachkauf,r.key);
+        const nach=manuell?Number(st.nachkauf[r.key])||0:r.eingangAuto;
+        const roh=r.heute+r.verkauft+r.privat-nach;
+        const ek=r.ek===null?0:r.ek;
+        return {...r,ek,nach,manuell,roh,stichtagMenge:Math.max(0,roh),wert:Math.max(0,roh)*ek};
+    });
+    rows.sort((a,b)=>a.kategorie.localeCompare(b.kategorie)||a.name.localeCompare(b.name));
+    return rows;
+}
+
+async function renderAnfangsinventar(){
+    const tbody=document.getElementById('aiBody'); if(!tbody)return;
+    if(!_aiState)_aiState=await loadAnfangState();
+    if(!_aiState.nachkauf)_aiState.nachkauf={};
+    const inp=document.getElementById('aiStichtag'); if(inp&&!inp.value)inp.value=_aiState.stichtag||AI_DEFAULT_STICHTAG;
+    _aiRows=await berechneAnfangsinventar();
+    const mitBestand=_aiRows.filter(r=>r.stichtagMenge>0);
+    document.getElementById('aiStatProdukte').textContent=mitBestand.length;
+    document.getElementById('aiStatStueck').textContent=mitBestand.reduce((s,r)=>s+r.stichtagMenge,0);
+    document.getElementById('aiStatWert').textContent='CHF '+chf(mitBestand.reduce((s,r)=>s+r.wert,0));
+    const q=(document.getElementById('aiSearch')?.value||'').toLowerCase();
+    const nur=document.getElementById('aiNurBestand')?.checked;
+    const list=_aiRows.filter(r=>(!q||r.name.toLowerCase().includes(q))&&(!nur||r.stichtagMenge>0));
+    if(list.length===0){tbody.innerHTML=`<tr><td colspan="10"><div class="empty-state"><div class="empty-icon">🗂️</div><p>Keine Produkte gefunden.</p></div></td></tr>`;return;}
+    tbody.innerHTML=list.map((r,i)=>{
+        const neg=r.roh<0;
+        const hinweise=[];
+        if(r.datumNach)hinweise.push('Produktdatum nach Stichtag – evtl. nachgekauft?');
+        if(r.ekQuelle&&r.ekQuelle!=='Inventar')hinweise.push('EK aus '+r.ekQuelle+' (nicht mehr im Lager)');
+        if(r.eingangAuto>0&&!r.manuell)hinweise.push('Nachgekauft aus Wareneingang vorausgefüllt');
+        const hint=hinweise.length?` <span title="${escapeHtml(hinweise.join(' · '))}" style="cursor:help;color:#fbbf24;">ⓘ</span>`:'';
+        return `<tr style="${r.stichtagMenge===0?'opacity:0.45;':''}">
+            <td style="color:rgba(255,255,255,0.22);font-size:0.72rem">${i+1}</td>
+            <td style="font-weight:600;font-size:0.85rem">${escapeHtml(r.name)}${hint}</td>
+            <td><span class="badge badge-andere">${escapeHtml(r.kategorie)}</span></td>
+            <td class="price-cell price-neutral">CHF ${r.ek.toFixed(2)}</td>
+            <td>${r.heute}</td>
+            <td style="color:#4ade80">${r.verkauft?'+'+r.verkauft:'0'}</td>
+            <td style="color:#c4b5fd">${r.privat?'+'+r.privat:'0'}</td>
+            <td><input class="form-input" type="number" step="1" value="${r.nach}" style="width:78px;padding:0.35rem 0.5rem;${r.manuell?'border-color:rgba(59,130,246,0.6);':''}" onchange="aiSetNachkauf('${encodeURIComponent(r.key)}',this.value)"></td>
+            <td style="font-weight:700;${neg?'color:#f87171':''}" ${neg?'title="Rechnerisch negativ – Nachgekauft zu hoch? Wird als 0 gezählt."':''}>${neg?'⚠️ 0':r.stichtagMenge}</td>
+            <td class="price-cell price-positive">CHF ${chf(r.wert)}</td>
+        </tr>`;
+    }).join('');
+}
+window.renderAnfangsinventar=renderAnfangsinventar;
+window.aiSetNachkauf=async function(encKey,val){
+    const key=decodeURIComponent(encKey);
+    const v=String(val).trim();
+    if(v===''){delete _aiState.nachkauf[key];}
+    else{const n=parseInt(v); if(isNaN(n)){showToast('⚠️ Ungültige Zahl');return;} _aiState.nachkauf[key]=n;}
+    _aiState.updated=new Date().toISOString();
+    await saveAnfangState(_aiState);
+    await renderAnfangsinventar();
+};
+window.aiStichtagGeaendert=async function(){
+    const v=document.getElementById('aiStichtag').value; if(!v)return;
+    _aiState.stichtag=v; _aiState.updated=new Date().toISOString();
+    await saveAnfangState(_aiState);
+    await renderAnfangsinventar();
+};
+
+window.exportAnfangsinventarPDF=async function(){
+    if(!_aiState)await renderAnfangsinventar();
+    const rows=_aiRows.filter(r=>r.stichtagMenge>0);
+    if(rows.length===0){showToast('⚠️ Kein Bestand am Stichtag');return;}
+    const { jsPDF } = window.jspdf;
+    const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+    const ML=14, MR=14, MT=16, PH=297, CW=210-ML-MR;
+    const user=USERS[currentUser]?.name||'Benutzer';
+    const firma='PokeLight KlG';
+    const stDat=aiParseDatum(_aiState.stichtag).toLocaleDateString('de-CH',{day:'2-digit',month:'2-digit',year:'numeric'});
+    const heute=new Date().toLocaleDateString('de-CH',{day:'2-digit',month:'2-digit',year:'numeric'});
+    const fmt=n=>'CHF '+chf(n);
+    const totalWert=rows.reduce((s,r)=>s+r.wert,0);
+    const totalStk=rows.reduce((s,r)=>s+r.stichtagMenge,0);
+
+    let y=MT;
+    doc.setFontSize(14);doc.setFont('helvetica','bold');doc.setTextColor(17,24,39);
+    doc.text(firma,ML,y);
+    doc.setFontSize(8.5);doc.setFont('helvetica','normal');doc.setTextColor(107,114,128);
+    doc.text(`Inhaber: ${user}`,ML,y+6);
+    doc.setFontSize(10);doc.setFont('helvetica','bold');doc.setTextColor(17,24,39);
+    doc.text(`Inventar per ${stDat}`,ML+CW,y,{align:'right'});
+    doc.setFontSize(8);doc.setFont('helvetica','normal');doc.setTextColor(107,114,128);
+    doc.text(`Erstellt: ${heute}`,ML+CW,y+6,{align:'right'});
+    y+=13;
+    doc.setDrawColor(220,220,220);doc.setLineWidth(0.3);doc.line(ML,y,ML+CW,y);
+    y+=6;
+    doc.setFontSize(8);doc.setFont('helvetica','normal');doc.setTextColor(75,85,99);
+    doc.text(`Warenlager zu Beginn der Geschäftstätigkeit (Stichtag ${stDat}). Bewertung zu Einkaufspreisen.`,ML,y,{maxWidth:CW});
+    y+=6;
+
+    doc.autoTable({
+        startY:y, margin:{left:ML,right:MR},
+        head:[['#','Produkt','Kategorie','Menge','EK / Stk','Wert']],
+        body:rows.map((r,i)=>[i+1,r.name,r.kategorie,r.stichtagMenge,fmt(r.ek),fmt(r.wert)]),
+        foot:[['','Total','',String(totalStk),'',fmt(totalWert)]],
+        theme:'plain',
+        headStyles:{fillColor:[243,244,246],textColor:[80,80,80],fontStyle:'bold',fontSize:7.5,cellPadding:3},
+        bodyStyles:{fontSize:8.2,cellPadding:{top:3,bottom:3,left:3,right:3},textColor:[55,65,81]},
+        footStyles:{fillColor:[245,245,245],fontStyle:'bold',fontSize:8.8,cellPadding:3.5,textColor:[17,24,39]},
+        alternateRowStyles:{fillColor:[249,250,251]},
+        columnStyles:{0:{cellWidth:9,textColor:[160,160,160]},1:{cellWidth:72},2:{cellWidth:28},3:{cellWidth:16,halign:'right'},4:{cellWidth:28,halign:'right'},5:{cellWidth:29,halign:'right'}},
+        didParseCell:d=>{ if(d.section==='foot'&&[3,5].includes(d.column.index))d.cell.styles.halign='right'; },
+        tableLineColor:[220,220,220],tableLineWidth:0.2
+    });
+    y=doc.lastAutoTable.finalY+14;
+    if(y>PH-40){doc.addPage();y=MT+10;}
+    doc.setFontSize(8);doc.setFont('helvetica','normal');doc.setTextColor(75,85,99);
+    doc.text('Ort, Datum',ML,y+8); doc.text('Unterschrift',ML+CW/2+5,y+8);
+    doc.setDrawColor(150,150,150);doc.line(ML,y+2,ML+CW/2-5,y+2);doc.line(ML+CW/2+5,y+2,ML+CW,y+2);
+
+    // Seite 2: Herleitung
+    doc.addPage(); y=MT;
+    doc.setFontSize(11);doc.setFont('helvetica','bold');doc.setTextColor(17,24,39);
+    doc.text(`Herleitung des Inventars per ${stDat}`,ML,y);
+    y+=6;
+    doc.setFontSize(7.8);doc.setFont('helvetica','normal');doc.setTextColor(75,85,99);
+    const txt=`Das Inventar wurde am ${heute} nachträglich rekonstruiert: Bestand am ${heute} + Verkäufe seit ${stDat} (Verkaufshistorie) + Privatbezüge seit ${stDat} − Wareneinkäufe seit ${stDat} (gemäss Lieferantenrechnungen) = Bestand am ${stDat}. Bewertung zum im Inventar hinterlegten Einkaufspreis; bei bereits ausverkauften Produkten zum EK gemäss Verkaufshistorie.`;
+    const lines=doc.splitTextToSize(txt,CW); doc.text(lines,ML,y); y+=lines.length*3.6+3;
+    doc.autoTable({
+        startY:y, margin:{left:ML,right:MR},
+        head:[['Produkt','Kategorie',`Bestand ${heute}`,'+ Verkauft','+ Privat','− Nachgekauft',`= ${stDat}`]],
+        body:rows.map(r=>[r.name,r.kategorie,r.heute,r.verkauft,r.privat,r.nach,r.stichtagMenge]),
+        foot:[['Total','',rows.reduce((s,r)=>s+r.heute,0),rows.reduce((s,r)=>s+r.verkauft,0),rows.reduce((s,r)=>s+r.privat,0),rows.reduce((s,r)=>s+r.nach,0),totalStk]],
+        theme:'plain',
+        headStyles:{fillColor:[243,244,246],textColor:[80,80,80],fontStyle:'bold',fontSize:7,cellPadding:2.5},
+        bodyStyles:{fontSize:7.6,cellPadding:2.5,textColor:[55,65,81]},
+        footStyles:{fillColor:[245,245,245],fontStyle:'bold',fontSize:7.8,cellPadding:2.8,textColor:[17,24,39]},
+        alternateRowStyles:{fillColor:[249,250,251]},
+        columnStyles:{0:{cellWidth:66},1:{cellWidth:26},2:{halign:'right'},3:{halign:'right'},4:{halign:'right'},5:{halign:'right'},6:{halign:'right',fontStyle:'bold'}},
+        didParseCell:d=>{ if((d.section==='foot'||d.section==='head')&&d.column.index>=2)d.cell.styles.halign='right'; },
+        tableLineColor:[220,220,220],tableLineWidth:0.2
+    });
+
+    const total=doc.getNumberOfPages();
+    for(let p=1;p<=total;p++){
+        doc.setPage(p);
+        doc.setDrawColor(200,200,200);doc.setLineWidth(0.3);doc.line(ML,PH-12,ML+CW,PH-12);
+        doc.setFontSize(7);doc.setFont('helvetica','normal');doc.setTextColor(150,150,150);
+        doc.text(`${firma} · Inventar per ${stDat} · ${user}`,ML,PH-7);
+        doc.text(`Seite ${p} / ${total}`,ML+CW,PH-7,{align:'right'});
+    }
+    doc.save(`PokeLight_Inventar_${_aiState.stichtag}_${user}.pdf`);
+    await logActivity('Anfangsinventar-PDF',`Stichtag ${stDat}: ${rows.length} Produkte, ${totalStk} Stk, ${fmt(totalWert)}`);
+};
 
 // ==================== KATEGORIEN ALTER VERKÄUFE KORRIGIEREN ====================
 // Nur automatisch erzeugte Verkaufsbuchungen (ID sell_vk_/sell_ek_ bzw. Beschreibung "Verkauf: " / "Wareneinsatz: ")
